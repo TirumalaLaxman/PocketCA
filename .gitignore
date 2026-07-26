@@ -1,0 +1,17 @@
+# Virtual Environment
+.venv/
+venv/
+
+# Environment Variables
+.env
+backend/.env
+
+# Python
+__pycache__/
+*.pyc
+
+# PyCharm
+.idea/
+
+# Vector Store
+vector_store/
