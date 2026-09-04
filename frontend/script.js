@@ -713,7 +713,6 @@ function closeSettingsModal() {
 
 async function saveSettings() {
     const newUrl = document.getElementById("backendUrlInput").value.trim();
-    const apiKey = document.getElementById("geminiApiKeyInput").value.trim();
     const feedback = document.getElementById("settingsFeedback");
 
     if (newUrl) {
@@ -721,32 +720,10 @@ async function saveSettings() {
         localStorage.setItem("pocketca_backend_url", BACKEND_URL);
     }
 
-    if (apiKey) {
-        try {
-            const res = await fetch(`${BACKEND_URL}/config/api-key`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ api_key: apiKey })
-            });
-            if (res.ok) {
-                feedback.className = "modal-feedback success";
-                feedback.textContent = "Google Gemini API Key activated successfully!";
-                checkBackendHealth();
-                setTimeout(() => closeSettingsModal(), 1200);
-            } else {
-                const errData = await res.json();
-                feedback.className = "modal-feedback error";
-                feedback.textContent = errData.detail || "Failed to configure API key.";
-            }
-        } catch (e) {
-            feedback.className = "modal-feedback error";
-            feedback.textContent = "Could not reach backend server.";
-        }
-    } else {
-        feedback.className = "modal-feedback success";
-        feedback.textContent = "Settings saved.";
-        setTimeout(() => closeSettingsModal(), 800);
-    }
+    feedback.className = "modal-feedback success";
+    feedback.textContent = "Settings saved successfully!";
+    checkBackendHealth();
+    setTimeout(() => closeSettingsModal(), 800);
 }
 
 // --------------------------------------------------------------------------

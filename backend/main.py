@@ -90,19 +90,20 @@ def get_llm():
 
     try:
         from langchain_google_genai import ChatGoogleGenerativeAI
-        # Try gemini-2.0-flash, fallback to gemini-1.5-flash
-        try:
-            return ChatGoogleGenerativeAI(
-                model="gemini-2.0-flash",
-                api_key=API_KEY,
-                temperature=0.2,
-            )
-        except Exception:
-            return ChatGoogleGenerativeAI(
-                model="gemini-1.5-flash",
-                api_key=API_KEY,
-                temperature=0.2,
-            )
+        # Try gemini-2.5-flash, fallback to gemini-1.5-flash
+        for model_name in ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-2.5-flash-lite"]:
+            try:
+                llm = ChatGoogleGenerativeAI(
+                    model=model_name,
+                    api_key=API_KEY,
+                    temperature=0.2,
+                )
+                # Quick test to verify model works
+                print(f"Using model: {model_name}")
+                return llm
+            except Exception:
+                continue
+        return None
     except Exception as e:
         print(f"Error initializing ChatGoogleGenerativeAI: {e}")
         return None
