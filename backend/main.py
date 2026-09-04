@@ -90,16 +90,14 @@ def get_llm():
 
     try:
         from langchain_google_genai import ChatGoogleGenerativeAI
-        # Try gemini-2.5-flash, fallback to gemini-1.5-flash
-        for model_name in ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-2.5-flash-lite"]:
+        # Active Google Gemini models
+        for model_name in ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.5-flash"]:
             try:
                 llm = ChatGoogleGenerativeAI(
                     model=model_name,
                     api_key=API_KEY,
                     temperature=0.2,
                 )
-                # Quick test to verify model works
-                print(f"Using model: {model_name}")
                 return llm
             except Exception:
                 continue
@@ -122,9 +120,7 @@ def generate_offline_answer(question: str, rag_results: List[Dict[str, Any]]) ->
         return (
             f"### Pocket C.A. Knowledge Base Advisory\n\n"
             f"Here is the relevant statutory reference matching your inquiry:\n\n"
-            f"{snippets}\n\n"
-            f"---\n"
-            f"*💡 **Pro-Tip:** To enable full conversational generative AI reasoning, click the **Settings** gear icon in the top right to add your Gemini API key.*"
+            f"{snippets}"
         )
 
     # General offline guidance
@@ -135,8 +131,7 @@ def generate_offline_answer(question: str, rag_results: List[Dict[str, Any]]) ->
         "• **Income Tax:** Old vs New Tax Regime comparisons (FY 2024-25 / FY 2025-26)\n"
         "• **TDS:** Sections 194C, 194J, 194I, 194H, 194Q\n"
         "• **Accounting:** Golden rules, double-entry journal entries, Balance Sheet & P&L\n"
-        "• **Calculators:** Click on the **Financial Calculators** tab in the sidebar for instant audit-ready computations.\n\n"
-        "*(Note: To unlock open-ended AI conversation, please add your Google Gemini API key via the Settings button).* "
+        "• **Calculators:** Click on the **Financial Calculators** tab in the sidebar for instant audit-ready computations."
     )
 
 
@@ -315,7 +310,11 @@ def chat(data: ChatRequest):
 
         # Invoke model
         response = llm.invoke(messages)
-        answer = response.content
+        if isinstance(response.content, list):
+            parts = [item.get("text", "") if isinstance(item, dict) else str(item) for item in response.content]
+            answer = "".join(parts)
+        else:
+            answer = str(response.content)
 
         # Save to memory
         session_mgr.add_message(session_id, "user", question)
