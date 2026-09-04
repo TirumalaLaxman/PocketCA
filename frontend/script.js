@@ -2,9 +2,9 @@
  * Pocket C.A. - Modern AI Financial Advisor Frontend
  */
 
-// Set your Railway backend URL here for production, or leave as localhost for local dev
-const PRODUCTION_URL = "";  // e.g. "https://pocketca-production.up.railway.app"
-let BACKEND_URL = localStorage.getItem("pocketca_backend_url") || PRODUCTION_URL || "http://127.0.0.1:8000";
+// Set your live Render backend URL for production
+const PRODUCTION_URL = "https://pocketca-9q42.onrender.com";
+let BACKEND_URL = localStorage.getItem("pocketca_backend_url") || PRODUCTION_URL;
 let currentSessionId = localStorage.getItem("pocketca_session_id") || generateUUID();
 let currentMessages = [];
 
