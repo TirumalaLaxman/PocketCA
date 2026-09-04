@@ -9,7 +9,10 @@ langchain-text-splitters
 
 faiss-cpu
 pypdf
+reportlab
+pillow
 
 google-generativeai
+google-genai
 
 python-multipart
