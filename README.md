@@ -1,126 +1,418 @@
-# Pocket C.A. - AI-Powered Chartered Accountant & Tax Advisory
+# Pocket C.A. — AI-Powered Chartered Accountant & Tax Advisory
 
-**Pocket C.A.** is a production-ready, full-stack AI financial platform tailored for Indian Accounting Standards (Ind AS), Direct Taxation (Income Tax Act 1961), and Indirect Taxation (GST Act 2017).
+**Pocket C.A.** is a full-stack AI financial platform designed for Indian accounting, taxation, and GST use cases.
 
-It provides intelligent multi-turn conversational advisory, Retrieval-Augmented Generation (RAG) over statutory reference documents, interactive audit-ready financial calculators, dynamic document ingestion (invoices, balance sheets), and session management.
+It combines **Generative AI, Retrieval-Augmented Generation (RAG), document retrieval, deterministic financial calculators, and conversational session management** into a single application.
+
+The system is designed around Indian Accounting Standards (Ind AS), Direct Taxation (Income Tax Act 1961), and Indirect Taxation (GST Act 2017).
 
 ---
 
 ## 🚀 Key Features
 
 ### 1. 🤖 AI Chartered Accountant Advisory
-- **Multi-Turn Session Memory**: Each consultation maintains independent conversation context and message history.
-- **RAG Grounding**: Queries automatically search and retrieve statutory context from authoritative knowledge base documents (`accounting.pdf`, `gst.pdf`).
-- **Citation Badges**: Answers cite statutory references (e.g. `[gst.pdf, Page 1]`, `[accounting.pdf, Page 2]`).
-- **Graceful Fallback**: Functions seamlessly in both online mode (via Google Gemini) and offline mode (via local BM25 knowledge search and deterministic tools).
+
+* **Multi-Turn Session Memory** — Each consultation maintains independent conversation context and message history.
+* **RAG Grounding** — User queries retrieve relevant context from statutory reference documents such as `accounting.pdf` and `gst.pdf`.
+* **Citation Support** — AI responses can reference the source document and page used for the response.
+* **Google Gemini Integration** — Uses Gemini for natural-language financial and accounting assistance.
+* **Graceful Fallback** — Supports local BM25 knowledge retrieval and deterministic tools when generative AI is unavailable.
 
 ### 2. 🧮 Interactive Financial Calculators
-- **GST Calculator**: Computes CGST, SGST, IGST, taxable values, and invoice totals for both tax-exclusive and tax-inclusive transactions across standard rate slabs (0%, 5%, 12%, 18%, 28%).
-- **Income Tax Regime Comparison (FY 2024-25 / FY 2025-26)**: Side-by-side analysis of the New Tax Regime (Section 115BAC) vs Old Tax Regime, factoring in Standard Deduction (₹75,000 New / ₹50,000 Old), Section 87A rebate, and 4% Cess with optimal regime recommendation.
-- **TDS Calculator**: Computes statutory withholding tax under Sections 194C, 194J, 194I, 194H, 194Q, 194A, and enforces Section 206AA (20% rate) when PAN is missing.
-- **Loan EMI Calculator**: Calculates monthly equated installments, total interest outgo, and overall repayment schedule.
-- **HRA Exemption Calculator**: Computes Section 10(13A) 3-rule exemption and taxable HRA for metro and non-metro locations.
-- **Depreciation Calculator**: Computes asset write-down schedules under Straight Line Method (SLM) and Written Down Value (WDV - Section 32).
-- **Double-Entry Journal Generator**: Produces formatted debit/credit journal entries with narration.
+
+PocketCA includes deterministic financial tools for common accounting and taxation calculations:
+
+* **GST Calculator** — Calculates CGST, SGST, IGST, taxable values, and invoice totals.
+* **Income Tax Calculator** — Compares Old and New Tax Regimes.
+* **TDS Calculator** — Supports common TDS sections and PAN-related rules.
+* **Loan EMI Calculator** — Calculates monthly EMI, total interest, and repayment amounts.
+* **HRA Exemption Calculator** — Calculates exempt and taxable HRA.
+* **Depreciation Calculator** — Supports Straight Line Method (SLM) and Written Down Value (WDV).
+* **Double-Entry Journal Generator** — Generates formatted debit/credit journal entries with narration.
 
 ### 3. 📄 Document Upload & Ingestion
-- Upload financial statements, invoices, and audit notes (PDF, TXT, CSV) via the drag-and-drop dropzone or attachment button to index them dynamically into the RAG vector store for instant analysis.
 
-### 4. 💻 Modern CA Dashboard UI
-- High-contrast financial dark theme with emerald and royal blue accents.
-- Full Markdown support (tables, lists, bolding, code/journal blocks).
-- Multi-session consultation sidebar with conversation export (`.md`).
-- Quick inquiry suggestion chips.
-- Interactive calculator drawer with direct "Send to Chat" functionality.
-- In-app Google Gemini API Key configuration modal.
+Users can upload financial documents such as:
+
+* PDF
+* TXT
+* CSV
+* Financial statements
+* Invoices
+* Audit notes
+
+Uploaded documents can be processed and indexed into the retrieval system for subsequent analysis.
+
+### 4. 💻 Modern CA Dashboard
+
+* Professional financial dashboard interface
+* Multi-session consultation sidebar
+* Markdown response rendering
+* Conversation export
+* Quick inquiry suggestions
+* Interactive financial calculator drawer
+* Send calculator results directly to chat
+* Runtime Google Gemini API key configuration
+* Responsive interface
 
 ---
 
-## 🛠️ Project Structure
+## 🧠 Tech Stack
 
+| Category                | Technologies                           |
+| ----------------------- | -------------------------------------- |
+| **Programming**         | Python, JavaScript                     |
+| **AI / LLM**            | Google Gemini                          |
+| **RAG**                 | LangChain, FAISS, BM25                 |
+| **Backend**             | FastAPI, Uvicorn                       |
+| **Frontend**            | HTML5, CSS3, JavaScript                |
+| **Document Processing** | PDF, TXT, CSV                          |
+| **Vector Search**       | FAISS                                  |
+| **Keyword Search**      | BM25                                   |
+| **Database / Storage**  | Local file-based storage, vector store |
+| **Testing**             | Python-based automated tests           |
+| **Development Tools**   | Git, GitHub, VS Code                   |
+
+---
+
+## 🔄 How PocketCA Works
+
+The core AI workflow combines document retrieval with large language model generation.
+
+```text
+                    USER QUERY
+                        │
+                        ▼
+              ┌─────────────────┐
+              │  FastAPI Backend │
+              └────────┬────────┘
+                       │
+                       ▼
+              ┌─────────────────┐
+              │ Query Processing │
+              └────────┬────────┘
+                       │
+              ┌────────┴────────┐
+              ▼                 ▼
+       ┌─────────────┐   ┌─────────────┐
+       │    FAISS    │   │    BM25     │
+       │Vector Search│   │Keyword Search│
+       └──────┬──────┘   └──────┬──────┘
+              │                 │
+              └────────┬────────┘
+                       ▼
+              Relevant Documents
+                       │
+                       ▼
+              Retrieved Context
+                       │
+                       ▼
+              ┌─────────────────┐
+              │  Google Gemini  │
+              │      LLM        │
+              └────────┬────────┘
+                       │
+                       ▼
+              Grounded AI Response
+                       │
+                       ▼
+             Citations + User Answer
 ```
+
+### RAG Pipeline
+
+PocketCA follows an end-to-end Retrieval-Augmented Generation workflow:
+
+```text
+Documents
+   ↓
+Document Loading
+   ↓
+Text Extraction
+   ↓
+Chunking
+   ↓
+Embedding / Indexing
+   ↓
+FAISS + BM25
+   ↓
+User Query
+   ↓
+Relevant Context Retrieval
+   ↓
+Prompt Construction
+   ↓
+Google Gemini
+   ↓
+Grounded Response
+```
+
+This architecture allows the application to provide responses based on the project's available reference material instead of relying entirely on the LLM's internal knowledge.
+
+---
+
+## 🧩 Deterministic Financial Tools
+
+An important design decision in PocketCA is separating **financial calculations from LLM generation**.
+
+Instead of asking the language model to perform every calculation, deterministic Python tools handle calculations such as:
+
+```text
+GST
+Income Tax
+TDS
+EMI
+HRA
+Depreciation
+Journal Entries
+```
+
+This approach makes numerical operations more predictable and allows the LLM to focus primarily on **reasoning, explanation, and conversational interaction**.
+
+---
+
+## 📄 Dynamic Document Ingestion
+
+PocketCA supports adding new documents to the knowledge base.
+
+```text
+User Uploads Document
+        ↓
+Document Validation
+        ↓
+Text Extraction
+        ↓
+Text Chunking
+        ↓
+Indexing
+        ↓
+FAISS / BM25
+        ↓
+Available for Future Queries
+```
+
+This allows the retrieval system to be extended with additional accounting, tax, GST, invoice, or financial documents.
+
+---
+
+## 🏗️ Project Structure
+
+```text
 PocketCA/
+│
 ├── backend/
-│   ├── main.py              # FastAPI server, session management, endpoints
-│   ├── prompts.py           # CA system instructions & RAG templates
-│   ├── rag.py               # Document loading, chunking, FAISS & BM25 engine
-│   ├── tools.py             # Deterministic CA financial calculators
-│   ├── requirements.txt     # Python dependencies
-│   └── vector_store/        # FAISS vector store cache (auto-generated)
+│   ├── main.py
+│   │   └── FastAPI server, sessions, API endpoints
+│   │
+│   ├── prompts.py
+│   │   └── AI system prompts and RAG templates
+│   │
+│   ├── rag.py
+│   │   └── Document loading, chunking, FAISS and BM25 retrieval
+│   │
+│   ├── tools.py
+│   │   └── Deterministic financial calculators
+│   │
+│   ├── requirements.txt
+│   │   └── Python dependencies
+│   │
+│   └── vector_store/
+│       └── Generated vector store cache
+│
 ├── data/
-│   ├── accounting.pdf       # Reference manual: Accounting & Ind AS
-│   ├── gst.pdf              # Reference manual: Indian GST Regulations
-│   └── uploads/             # User-uploaded documents (auto-created)
+│   ├── accounting.pdf
+│   │   └── Accounting / Ind AS reference material
+│   │
+│   ├── gst.pdf
+│   │   └── GST reference material
+│   │
+│   └── uploads/
+│       └── User-uploaded documents
+│
 ├── frontend/
-│   ├── index.html           # Professional CA workspace dashboard
-│   ├── script.js            # Client logic, chat, session, calculators, upload
-│   └── style.css            # Dark mode financial theme & responsive layout
+│   ├── index.html
+│   │   └── Dashboard interface
+│   │
+│   ├── script.js
+│   │   └── Chat, sessions, calculators and uploads
+│   │
+│   └── style.css
+│       └── UI styling and responsive layout
+│
+├── scratch/
+│   └── test_pocketca.py
+│       └── Automated verification tests
+│
 └── README.md
 ```
 
 ---
 
-## ⚡ Quick Start Guide
+## ⚡ Quick Start
 
 ### Prerequisites
-- Python 3.10+ (Python 3.14 fully supported)
-- Google Gemini API Key (optional for basic calculators; required for generative AI chat)
 
-### 1. Install Backend Dependencies
+* Python 3.10+
+* Google Gemini API key for generative AI features
+* Git
+* Modern web browser
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/TirumalaLaxman/PocketCA.git
+cd PocketCA
+```
+
+### 2. Install Backend Dependencies
+
 ```bash
 cd backend
 python -m pip install -r requirements.txt
 ```
 
-### 2. Configure API Key (Optional)
-Create a `.env` file in `backend/`:
+### 3. Configure Google Gemini
+
+Create a `.env` file inside the `backend/` directory:
+
 ```env
 GOOGLE_API_KEY=your_gemini_api_key_here
 ```
-*(Alternatively, you can click the **Settings** gear icon in the frontend UI to enter your API key directly at runtime).*
 
-### 3. Launch Backend Server
+The API key can also be configured through the application's settings interface if supported by the current frontend implementation.
+
+### 4. Start the Backend
+
+From the `backend/` directory:
+
 ```bash
-cd backend
 python -m uvicorn main:app --reload --host 127.0.0.1 --port 8000
 ```
-FastAPI documentation will be accessible at: `http://127.0.0.1:8000/docs`.
 
-### 4. Launch Frontend
-Open `frontend/index.html` in any web browser, or serve it with Python:
+FastAPI API documentation:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+### 5. Start the Frontend
+
+Open a new terminal:
+
 ```bash
 cd frontend
 python -m http.server 3000
 ```
-Navigate to `http://localhost:3000` in your browser.
+
+Then open:
+
+```text
+http://localhost:3000
+```
 
 ---
 
 ## 🧪 Running Automated Tests
 
-To run the end-to-end verification suite testing all tools, RAG search, and FastAPI endpoints:
-```bash
+PocketCA includes an automated verification script covering the financial tools, RAG functionality, and API endpoints.
+
+On Windows PowerShell:
+
+```powershell
 $env:PYTHONIOENCODING="utf-8"
 python scratch/test_pocketca.py
 ```
 
 ---
 
-## 📜 API Endpoints Overview
+## 📡 API Endpoints
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/` | System status, knowledge base metrics, and tool list |
-| `POST` | `/chat` | Multi-turn conversational consultation with RAG context |
-| `GET` | `/history/{session_id}` | Retrieve message history for a consultation session |
-| `DELETE` | `/history/{session_id}` | Clear message history for a session |
-| `POST` | `/upload` | Upload PDF/TXT/CSV financial file to RAG knowledge base |
-| `POST` | `/config/api-key` | Set/update Google Gemini API key dynamically |
-| `GET` | `/tools` | List metadata of all available CA financial calculators |
-| `POST` | `/tools/gst` | Calculate GST with inclusive/exclusive & CGST/SGST/IGST splits |
-| `POST` | `/tools/tax` | Compare Income Tax liabilities (Old vs New Regime) |
-| `POST` | `/tools/tds` | Calculate TDS rates, threshold checks, and Section 206AA |
-| `POST` | `/tools/emi` | Calculate monthly loan EMI and total interest |
-| `POST` | `/tools/hra` | Calculate Section 10(13A) exempt & taxable HRA |
-| `POST` | `/tools/depreciation` | Generate SLM / WDV asset amortization schedule |
-| `POST` | `/tools/journal` | Format audit-ready double-entry journal entry |
+| Method   | Endpoint                | Description                                                |
+| -------- | ----------------------- | ---------------------------------------------------------- |
+| `GET`    | `/`                     | System status, knowledge base metrics and tool information |
+| `POST`   | `/chat`                 | Multi-turn AI consultation with RAG context                |
+| `GET`    | `/history/{session_id}` | Retrieve consultation history                              |
+| `DELETE` | `/history/{session_id}` | Clear consultation history                                 |
+| `POST`   | `/upload`               | Upload PDF/TXT/CSV documents                               |
+| `POST`   | `/config/api-key`       | Configure Google Gemini API key                            |
+| `GET`    | `/tools`                | List available financial tools                             |
+| `POST`   | `/tools/gst`            | Calculate GST                                              |
+| `POST`   | `/tools/tax`            | Compare tax regimes                                        |
+| `POST`   | `/tools/tds`            | Calculate TDS                                              |
+| `POST`   | `/tools/emi`            | Calculate loan EMI                                         |
+| `POST`   | `/tools/hra`            | Calculate HRA exemption                                    |
+| `POST`   | `/tools/depreciation`   | Generate depreciation schedule                             |
+| `POST`   | `/tools/journal`        | Generate double-entry journal entries                      |
+
+---
+
+## 🔐 Security Note
+
+API keys and other sensitive configuration values should be stored securely and should **never be committed to GitHub**.
+
+Use environment variables or the application's supported runtime configuration mechanism.
+
+Make sure `.env` is included in `.gitignore`.
+
+---
+
+## ⚠️ Disclaimer
+
+PocketCA is an **AI-assisted financial and accounting application developed for educational and software-engineering purposes**.
+
+It should not be treated as a substitute for professional advice from a qualified Chartered Accountant, tax professional, or financial advisor.
+
+Tax laws, regulations, rates, and compliance requirements can change. Users should verify applicable rules against current official sources before making financial or compliance decisions.
+
+---
+
+## 🎯 Project Goals
+
+PocketCA was built to explore how modern AI technologies can be combined with domain-specific financial software.
+
+The project demonstrates:
+
+* Retrieval-Augmented Generation (RAG)
+* Large Language Model integration
+* Vector search
+* Keyword retrieval
+* Document ingestion
+* Prompt engineering
+* Conversational AI
+* Deterministic financial computation
+* REST API development
+* Full-stack application development
+* AI application architecture
+
+---
+
+## 🚧 Future Improvements
+
+Potential future enhancements include:
+
+* Authentication and user accounts
+* Persistent database-backed conversations
+* More Indian tax and GST reference documents
+* Improved document parsing
+* Hybrid retrieval optimization
+* Reranking retrieved documents
+* Evaluation datasets for RAG quality
+* Automated response evaluation
+* Production deployment
+* Advanced financial document analysis
+* Voice-based financial assistant
+* Role-based access control
+
+---
+
+## 👨‍💻 Author
+
+**Tirumala Laxman**
+
+AI/ML Engineer | Python Developer | Generative AI Enthusiast
+
+GitHub: https://github.com/TirumalaLaxman
+
+---
+
+⭐ If you find the project interesting, feel free to explore the repository and follow the development journey.
