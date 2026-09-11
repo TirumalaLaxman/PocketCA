@@ -2,106 +2,193 @@
 PocketCA - AI-Powered Chartered Accountant Backend
 FastAPI server providing multi-session chat, RAG-grounded tax & accounting advisory,
 financial calculator tools, file ingestion, and runtime configuration.
+
+HOW THIS FILE WORKS:
+- This is the MAIN SERVER file. When you run this, it starts a web server (API).
+- The frontend (website/app) sends HTTP requests to this server.
+- This server processes those requests using AI (Google Gemini) and returns responses.
+- Think of it like a "brain" that the frontend talks to.
 """
 
-import os
-import uuid
-import shutil
-from pathlib import Path
-from typing import Dict, Any, List, Optional
+import os          # os = Operating System
+import uuid        # uuid = (universally unique Identifier). Generates random unique IDs for chat sessions
+import shutil      # shutil = Shell Utilities. Helps with file like copying uploaded files
+from pathlib import Path  # Path = Makes file/folder paths easier across Windows/Mac/Linux
+
+from typing import Dict, Any, List, Optional #typing used for type hints, ensures code readability
 
 from dotenv import load_dotenv
+
+# FastAPI = A modern Python framework for building web APIs quickly.
+# UploadFile, File = Handle file uploads from users
+# Form = Handle data from users
+# HTTPException = Return error messages to the frontend (like "400 Bad Request")
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+
+# CORSMiddleware = Allows the frontend (running on a different port/domain) to talk to this backend.
+# Without this, the browser would block requests from the frontend to the backend (security feature).
 from fastapi.middleware.cors import CORSMiddleware
+
+# BaseModel = A Pydantic class that validates incoming data automatically.
+# When a user sends JSON data, Pydantic checks that it has the right fields and types.
+# Field = Lets us set default values and validation rules for model fields.
 from pydantic import BaseModel, Field
 
-from prompts import SYSTEM_PROMPT, RAG_CONTEXT_TEMPLATE
-from rag import rag_engine, DATA_DIR, UPLOADS_DIR
-import tools
+# Our own custom files (in the same backend/ folder):
+from prompts import SYSTEM_PROMPT, RAG_CONTEXT_TEMPLATE  # AI instructions & prompt templates
+from rag import rag_engine, DATA_DIR, UPLOADS_DIR         # Knowledge base search engine
+import tools  # Financial calculator functions (GST, Tax, TDS, EMI, etc.)
 
-# ----------------------------------------------------------------------
-# 1. Environment & Initialization
-# ----------------------------------------------------------------------
+# =====================================================================
+# 1. ENVIRONMENT & INITIALIZATION
+# =====================================================================
+# This section loads configuration and starts up the server.
+
+# Find the .env file in the same folder as this script
 env_path = Path(__file__).parent / ".env"
+# Load the .env file — this reads GOOGLE_API_KEY from the file and puts it into os.environ
 load_dotenv(dotenv_path=env_path)
 
+# Read the API key from environment variables.
+# We check two possible names because users might set either one.
+# Optional[str] means: this could be a string OR None (if no key is set).
 API_KEY: Optional[str] = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
 
-# Initialize RAG with knowledge base
+# Initialize the RAG (Retrieval-Augmented Generation) knowledge base.
+# If we have an API key, tell the RAG engine so it can use Google's AI for better search.
 if API_KEY:
     rag_engine.set_api_key(API_KEY)
+# Load and index all PDF/text documents from the data/ folder
 rag_engine.initialize()
 
+# Create the FastAPI application — this is the web server object.
+# Everything below (routes, middleware) gets attached to this 'app'.
 app = FastAPI(
     title="PocketCA Backend",
     description="AI-Powered Chartered Accountant Assistant & Tax Advisory API",
     version="2.0.0"
 )
 
+# CORS Middleware Setup:
+# CORS = Cross-Origin Resource Sharing
+# When your frontend runs on http://localhost:3000 and backend on http://localhost:8000,
+# the browser blocks requests between them by default (security feature).
+# This middleware tells the browser: "It's okay, allow requests from any origin."
+# allow_origins=["*"] means "accept requests from ANY website" (use specific URLs in production)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=["*"],          # Which websites can access this API
+    allow_credentials=True,       # Allow cookies and authentication headers
+    allow_methods=["*"],          # Allow all HTTP methods (GET, POST, DELETE, etc.)
+    allow_headers=["*"],          # Allow all HTTP headers
 )
 
 
-# ----------------------------------------------------------------------
-# 2. Session & Memory Store
-# ----------------------------------------------------------------------
+# =====================================================================
+# 2. SESSION & MEMORY STORE
+# =====================================================================
+# Sessions let the AI remember previous messages in a conversation.
+# Each user gets a unique "session_id" so their chat history stays separate.
+
 class ChatMessage(BaseModel):
+    """
+    Represents a single message in a chat conversation.
+    
+    - role: Who sent the message — "user" (the human) or "assistant" (the AI)
+    - content: The actual text of the message
+    - sources: Optional list of knowledge base references used (e.g., "gst.pdf (Page 2)")
+    """
     role: str  # "user" or "assistant"
     content: str
-    sources: Optional[List[str]] = None
+    sources: Optional[List[str]] = None  # None means no sources were used
 
 
 class SessionManager:
-    """Manages conversational context per session ID in-memory."""
+    """
+    Manages conversational context per session ID, stored in-memory (RAM).
+    
+    WHY WE NEED THIS:
+    Without sessions, the AI would forget everything after each message.
+    The SessionManager stores the last few messages so the AI can reference 
+    previous conversation context (like "what did I ask earlier?").
+    
+    NOTE: Since this is stored in RAM, all chat history is lost when the server restarts.
+    For production, you'd use a database like Redis or PostgreSQL.
+    """
     def __init__(self):
+        # Dictionary mapping session_id -> list of ChatMessages
+        # Example: {"abc-123": [ChatMessage(role="user", content="What is GST?"), ...]}
         self.sessions: Dict[str, List[ChatMessage]] = {}
 
     def get_history(self, session_id: str) -> List[ChatMessage]:
+        """Retrieve all stored messages for a given session. Returns empty list if session doesn't exist."""
         return self.sessions.get(session_id, [])
 
     def add_message(self, session_id: str, role: str, content: str, sources: Optional[List[str]] = None):
+        """
+        Add a new message to a session's history.
+        Automatically creates a new session if the session_id doesn't exist yet.
+        Keeps only the last 12 messages to prevent memory from growing too large.
+        """
         if session_id not in self.sessions:
             self.sessions[session_id] = []
         self.sessions[session_id].append(ChatMessage(role=role, content=content, sources=sources))
-        # Keep last 12 messages for conversation context
+        # Memory limit: Keep only the last 12 messages (6 user + 6 assistant pairs)
+        # This prevents the conversation context from getting too long for the AI model
         if len(self.sessions[session_id]) > 12:
             self.sessions[session_id] = self.sessions[session_id][-12:]
 
     def clear(self, session_id: str):
+        """Delete all messages for a session (used when user wants to start fresh)."""
         if session_id in self.sessions:
             del self.sessions[session_id]
 
 
+# Create a single SessionManager instance that the entire app shares
 session_mgr = SessionManager()
 
 
-# ----------------------------------------------------------------------
-# 3. LLM Client Helper
-# ----------------------------------------------------------------------
+# =====================================================================
+# 3. LLM CLIENT HELPER
+# =====================================================================
+# LLM = Large Language Model (the AI brain, in this case Google Gemini).
+# These functions handle connecting to the AI model and generating responses.
+
 def get_llm():
-    global API_KEY
+    """
+    Create and return a connection to Google's Gemini AI model.
+    
+    HOW IT WORKS:
+    - Tries to connect using the first model in the list (gemini-2.5-flash — fastest & cheapest)
+    - If that fails, tries the next one (gemini-2.5-pro — more powerful but slower)
+    - If that also fails, tries the fallback (gemini-2.0-flash)
+    - Returns None if ALL models fail (app will then use offline mode)
+    
+    WHY TRY MULTIPLE MODELS?
+    Some models might be temporarily unavailable, or your API key might not have access to all models.
+    This fallback chain ensures the app works with whatever model is available.
+    """
+    global API_KEY  # Use the API_KEY variable from the top of this file
     if not API_KEY:
-        return None
+        return None  # No API key = can't use AI, return None to trigger offline mode
 
     try:
+        # LangChain is a framework that makes it easy to work with different AI models
+        # ChatGoogleGenerativeAI is LangChain's wrapper for Google Gemini
         from langchain_google_genai import ChatGoogleGenerativeAI
-        # Active Google Gemini models
-        for model_name in ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.5-flash"]:
+        # Active Google Gemini models (try in order of preference)
+        for model_name in ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash"]:
             try:
                 llm = ChatGoogleGenerativeAI(
-                    model=model_name,
-                    api_key=API_KEY,
-                    temperature=0.2,
+                    model=model_name,      # Which Gemini model to use
+                    api_key=API_KEY,        # Your Google API key for authentication
+                    temperature=0.2,        # Controls randomness: 0.0 = very focused, 1.0 = very creative
+                                            # 0.2 is low because we want accurate financial answers, not creative ones
                 )
-                return llm
+                return llm  # Successfully connected! Return this model.
             except Exception:
-                continue
-        return None
+                continue  # This model failed, try the next one
+        return None  # All models failed
     except Exception as e:
         print(f"Error initializing ChatGoogleGenerativeAI: {e}")
         return None
@@ -109,13 +196,20 @@ def get_llm():
 
 def generate_offline_answer(question: str, rag_results: List[Dict[str, Any]]) -> str:
     """
-    Fallback reasoning engine when GOOGLE_API_KEY is not configured.
-    Provides answers from the knowledge base and guides the user.
+    Fallback answer generator when Google API key is NOT configured (offline mode).
+    
+    Instead of using AI, this function:
+    1. Checks if the knowledge base (PDFs) has relevant information
+    2. If yes, shows those snippets directly to the user
+    3. If no, shows a generic "here's what I can help with" message
+    
+    This ensures the app is still useful even without an internet connection or API key.
     """
     q_lower = question.lower()
 
-    # If RAG found strong matches in knowledge base
+    # If the RAG engine found matching text in the knowledge base PDFs
     if rag_results:
+        # Format each result as a readable snippet with its source reference
         snippets = "\n\n".join([f"**From {r['source']} (Page {r['page']}):**\n{r['text']}" for r in rag_results])
         return (
             f"### Pocket C.A. Knowledge Base Advisory\n\n"
@@ -123,7 +217,7 @@ def generate_offline_answer(question: str, rag_results: List[Dict[str, Any]]) ->
             f"{snippets}"
         )
 
-    # General offline guidance
+    # No knowledge base matches found — show a general help message
     return (
         "### Pocket C.A. Assistant\n\n"
         "I am ready to help you with:\n"
@@ -135,92 +229,119 @@ def generate_offline_answer(question: str, rag_results: List[Dict[str, Any]]) ->
     )
 
 
-# ----------------------------------------------------------------------
-# 4. Request / Response Models
-# ----------------------------------------------------------------------
+# =====================================================================
+# 4. REQUEST / RESPONSE MODELS
+# =====================================================================
+# These classes define the SHAPE of data coming IN (requests) and going OUT (responses).
+# Pydantic automatically validates the data — if a required field is missing or wrong type,
+# the API returns a clear error message like "field 'amount' is required".
+
 class ChatRequest(BaseModel):
-    question: str
-    session_id: Optional[str] = None
-    use_rag: bool = True
+    """What the frontend sends when the user asks a question."""
+    question: str                          # The user's question text (required)
+    session_id: Optional[str] = None       # Which conversation this belongs to (auto-generated if not sent)
+    use_rag: bool = True                   # Whether to search the knowledge base for context (default: yes)
 
 
 class ChatResponse(BaseModel):
-    answer: str
-    session_id: str
-    sources: List[str] = Field(default_factory=list)
+    """What this API sends back after processing the user's question."""
+    answer: str                            # The AI-generated or knowledge-base answer
+    session_id: str                        # The session ID (so frontend can continue the conversation)
+    sources: List[str] = Field(default_factory=list)  # List of knowledge base sources used
 
 
 class ApiKeyRequest(BaseModel):
-    api_key: str
+    """What the frontend sends when the user configures their API key."""
+    api_key: str                           # The Google Gemini API key string
 
+
+# --- Calculator Request Models ---
+# Each calculator endpoint has its own model defining what input it needs.
 
 class GstRequest(BaseModel):
-    amount: float
-    rate: float = 18.0
-    tax_type: str = "exclusive"
-    is_interstate: bool = False
+    """Input for GST Calculator."""
+    amount: float                          # The bill amount in ₹
+    rate: float = 18.0                     # GST rate percentage (default 18%)
+    tax_type: str = "exclusive"            # "exclusive" (GST added on top) or "inclusive" (GST already in price)
+    is_interstate: bool = False            # True = IGST (different states), False = CGST+SGST (same state)
 
 
 class TaxRequest(BaseModel):
-    gross_income: float
-    financial_year: str = "2024-25"
-    deductions_80c: float = 0.0
-    deductions_80d: float = 0.0
-    other_deductions: float = 0.0
-    is_senior_citizen: bool = False
+    """Input for Income Tax Calculator (compares Old vs New regime)."""
+    gross_income: float                    # Total annual income before any deductions
+    financial_year: str = "2024-25"        # Which FY's tax slabs to use
+    deductions_80c: float = 0.0            # Deductions under Sec 80C (PPF, ELSS, LIC, etc.) — max ₹1.5L
+    deductions_80d: float = 0.0            # Deductions under Sec 80D (Health insurance premium)
+    other_deductions: float = 0.0          # Any other deductions (80G donations, etc.)
+    is_senior_citizen: bool = False        # Senior citizens (60-80 yrs) get higher exemption limit
 
 
 class TdsRequest(BaseModel):
-    section: str = "194J"
-    amount: float
-    pan_available: bool = True
-    payee_type: str = "individual"
+    """Input for TDS Calculator."""
+    section: str = "194J"                  # Which TDS section (194C, 194J, 194I, 194H, 194Q, 194A)
+    amount: float                          # The bill/payment amount in ₹
+    pan_available: bool = True             # Does the payee have a PAN card? (No PAN = higher TDS rate)
+    payee_type: str = "individual"         # Type of payee: "individual", "company", "technical", etc.
 
 
 class EmiRequest(BaseModel):
-    principal: float
-    annual_rate: float
-    tenure_months: int
+    """Input for Loan EMI Calculator."""
+    principal: float                       # Loan amount in ₹
+    annual_rate: float                     # Annual interest rate in % (e.g., 8.5)
+    tenure_months: int                     # Loan duration in months (e.g., 240 for 20 years)
 
 
 class HraRequest(BaseModel):
-    basic_salary: float
-    da: float = 0.0
-    hra_received: float = 0.0
-    rent_paid: float = 0.0
-    is_metro: bool = False
+    """Input for HRA (House Rent Allowance) Exemption Calculator."""
+    basic_salary: float                    # Annual basic salary in ₹
+    da: float = 0.0                        # Dearness Allowance (part of salary)
+    hra_received: float = 0.0              # Actual HRA received from employer per year
+    rent_paid: float = 0.0                 # Actual rent paid per year
+    is_metro: bool = False                 # True if living in Delhi/Mumbai/Kolkata/Chennai (50% vs 40% rule)
 
 
 class DeprRequest(BaseModel):
-    cost: float
-    salvage_value: float = 0.0
-    useful_life_years: int = 5
-    method: str = "SLM"
-    rate_percent: Optional[float] = None
+    """Input for Depreciation Calculator."""
+    cost: float                            # Original cost of the asset in ₹
+    salvage_value: float = 0.0             # Expected value at end of useful life (scrap value)
+    useful_life_years: int = 5             # How many years the asset will be used
+    method: str = "SLM"                    # "SLM" (Straight Line) or "WDV" (Written Down Value)
+    rate_percent: Optional[float] = None   # Custom depreciation rate (auto-calculated if not provided)
 
 
 class JournalRequest(BaseModel):
-    transaction_description: str
-    amount: float
-    debit_account: str
-    credit_account: str
-    narration: Optional[str] = None
+    """Input for Journal Entry Generator."""
+    transaction_description: str           # What the transaction is about (e.g., "Purchased furniture")
+    amount: float                          # Transaction amount in ₹
+    debit_account: str                     # Account to debit (e.g., "Furniture")
+    credit_account: str                    # Account to credit (e.g., "Cash" or "Bank")
+    narration: Optional[str] = None        # Optional narration text (auto-generated if not provided)
 
 
-# ----------------------------------------------------------------------
-# 5. Core API Endpoints
-# ----------------------------------------------------------------------
+# =====================================================================
+# 5. CORE API ENDPOINTS
+# =====================================================================
+# Endpoints are URLs that the frontend can call. Each one does something specific.
+# Decorators like @app.get("/") and @app.post("/chat") map URLs to Python functions.
+
 @app.get("/")
 def home():
-    """System health check and capability status."""
+    """
+    HEALTH CHECK ENDPOINT — GET /
+    
+    The frontend calls this to check if the server is running and what features are available.
+    Returns server status, whether API key is set, knowledge base stats, and available tools.
+    
+    Example: Frontend checks this on startup to show "Connected" or "Offline" status.
+    """
     return {
         "status": "PocketCA Running",
         "version": "2.0.0",
-        "api_key_configured": bool(API_KEY),
+        "api_key_configured": bool(API_KEY),        # True if API key is set, False otherwise
         "knowledge_base": {
-            "total_chunks": len(rag_engine.chunks),
-            "faiss_active": rag_engine.faiss_store is not None,
-            "fallback_active": True
+            "total_chunks": len(rag_engine.chunks),  # How many text chunks are indexed
+            "faiss_active": rag_engine.faiss_store is not None,  # Is AI-powered search active?
+            "fallback_active": True                  # Basic keyword search is always available
         },
         "available_tools": [
             "GST Calculator", "Income Tax Comparison", "TDS Calculator",
@@ -231,14 +352,21 @@ def home():
 
 @app.post("/config/api-key")
 def configure_api_key(data: ApiKeyRequest):
-    """Set or update Google Gemini API key at runtime."""
-    global API_KEY
-    cleaned_key = data.api_key.strip()
+    """
+    API KEY CONFIGURATION — POST /config/api-key
+    
+    Allows the user to set or change their Google Gemini API key at runtime,
+    without needing to restart the server or edit the .env file.
+    
+    The frontend provides a settings page where users can paste their API key.
+    """
+    global API_KEY  # Modify the global API_KEY variable
+    cleaned_key = data.api_key.strip()  # Remove any accidental whitespace
     if not cleaned_key:
         raise HTTPException(status_code=400, detail="API key cannot be empty.")
 
     API_KEY = cleaned_key
-    rag_engine.set_api_key(API_KEY)
+    rag_engine.set_api_key(API_KEY)  # Update the RAG engine so it can use AI-powered search
     return {
         "success": True,
         "message": "Google API key successfully configured. Generative AI models are now active."
@@ -247,49 +375,73 @@ def configure_api_key(data: ApiKeyRequest):
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(data: ChatRequest):
-    """Multi-turn conversational chat with RAG retrieval and tool awareness."""
+    """
+    MAIN CHAT ENDPOINT — POST /chat
+    
+    This is the HEART of the application. When a user sends a question:
+    
+    Step 1: Search the knowledge base (RAG) for relevant tax/accounting info
+    Step 2: Try to get an AI model (Gemini) to answer
+    Step 3: If AI is unavailable, use offline mode (knowledge base snippets only)
+    
+    The AI gets:
+    - A system prompt (telling it to act as a Chartered Accountant)
+    - Previous conversation history (for context)
+    - Relevant knowledge base snippets (for accuracy)
+    - The user's current question
+    """
+    # Generate a unique session ID if the frontend didn't provide one
     session_id = data.session_id or str(uuid.uuid4())
     question = data.question.strip()
 
     if not question:
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
 
-    # 1. RAG Search
-    sources = []
-    rag_context = ""
-    rag_results = []
+    # ----- Step 1: RAG Search (find relevant info from knowledge base) -----
+    sources = []       # Will hold source references like "gst.pdf (Page 2)"
+    rag_context = ""   # Will hold the actual text from matched documents
+    rag_results = []   # Raw search results
 
     if data.use_rag:
         try:
+            # Search the knowledge base for the top 2 most relevant chunks
             rag_results = rag_engine.search(question, top_k=2)
             if rag_results:
                 context_blocks = []
                 for r in rag_results:
+                    # Create a readable source label like "gst.pdf (Page 2)"
                     src_label = f"{r['source']} (Page {r['page']})"
                     if src_label not in sources:
                         sources.append(src_label)
                     context_blocks.append(f"[{src_label}]:\n{r['text']}")
+                # Join all found text blocks into one context string
                 rag_context = "\n\n".join(context_blocks)
         except Exception as e:
-            print(f"RAG search error: {e}")
+            print(f"RAG search error: {e}")  # Log but don't crash — RAG failure shouldn't break chat
 
-    # 2. Get LLM instance
-    llm = get_llm()
+    # ----- Step 2: Get AI Model -----
+    llm = get_llm()  # Try to connect to Google Gemini
 
     if not llm:
-        # Fallback offline mode
+        # NO AI AVAILABLE — use offline fallback mode
+        # This happens when: no API key is set, or all Gemini models are down
         answer = generate_offline_answer(question, rag_results)
         session_mgr.add_message(session_id, "user", question)
         session_mgr.add_message(session_id, "assistant", answer, sources)
         return ChatResponse(answer=answer, session_id=session_id, sources=sources)
 
-    # 3. Build messages with history and system prompt
+    # ----- Step 3: Build AI Prompt & Get Response -----
     try:
+        # LangChain message types:
+        # SystemMessage = Instructions for the AI (how to behave)
+        # HumanMessage = What the user said
+        # AIMessage = What the AI previously replied
         from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 
+        # Start with the system prompt (tells AI to act as a Chartered Accountant)
         messages = [SystemMessage(content=SYSTEM_PROMPT)]
 
-        # Add prior session history
+        # Add previous conversation messages (so AI remembers what was discussed)
         history = session_mgr.get_history(session_id)
         for msg in history:
             if msg.role == "user":
@@ -297,26 +449,29 @@ def chat(data: ChatRequest):
             else:
                 messages.append(AIMessage(content=msg.content))
 
-        # Build current prompt
+        # Build the current question — if we found knowledge base context, include it
         if rag_context:
+            # Use the RAG template to combine knowledge base info + user question
             current_prompt = RAG_CONTEXT_TEMPLATE.format(
                 rag_context=rag_context,
                 question=question
             )
         else:
-            current_prompt = question
+            current_prompt = question  # No knowledge base context, just send the question directly
 
         messages.append(HumanMessage(content=current_prompt))
 
-        # Invoke model
+        # Send everything to Gemini and get the response
         response = llm.invoke(messages)
+
+        # Parse the response — Gemini sometimes returns a list of parts instead of a single string
         if isinstance(response.content, list):
             parts = [item.get("text", "") if isinstance(item, dict) else str(item) for item in response.content]
             answer = "".join(parts)
         else:
             answer = str(response.content)
 
-        # Save to memory
+        # Save both the question and answer to session memory for future context
         session_mgr.add_message(session_id, "user", question)
         session_mgr.add_message(session_id, "assistant", answer, sources)
 
@@ -326,8 +481,8 @@ def chat(data: ChatRequest):
             sources=sources
         )
     except Exception as e:
+        # If AI fails mid-response, show the error AND the knowledge base results as fallback
         print(f"LLM generation error: {e}")
-        # Graceful fallback
         fallback_msg = (
             f"*(Note: LLM request encountered an error: {str(e)[:100]}. Showing knowledge base reference below.)*\n\n" +
             generate_offline_answer(question, rag_results)
@@ -341,7 +496,12 @@ def chat(data: ChatRequest):
 
 @app.get("/history/{session_id}")
 def get_history(session_id: str):
-    """Retrieve chat history for a session."""
+    """
+    GET CHAT HISTORY — GET /history/{session_id}
+    
+    Returns all stored messages for a given session.
+    The frontend uses this to restore a previous conversation when the user comes back.
+    """
     return {
         "session_id": session_id,
         "messages": [m.dict() for m in session_mgr.get_history(session_id)]
@@ -350,18 +510,37 @@ def get_history(session_id: str):
 
 @app.delete("/history/{session_id}")
 def clear_history(session_id: str):
-    """Clear chat history for a session."""
+    """
+    CLEAR CHAT HISTORY — DELETE /history/{session_id}
+    
+    Deletes all messages in a session. Used when the user clicks "New Chat" or "Clear History".
+    """
     session_mgr.clear(session_id)
     return {"success": True, "message": f"Session {session_id} cleared."}
 
 
 @app.post("/upload")
 async def upload_document(file: UploadFile = File(...)):
-    """Upload PDF or text documents for dynamic RAG knowledge indexing."""
+    """
+    DOCUMENT UPLOAD — POST /upload
+    
+    Allows users to upload their own PDF, TXT, MD, or CSV files.
+    The uploaded document gets:
+    1. Saved to the data/uploads/ folder
+    2. Indexed into the knowledge base (RAG engine)
+    3. Available for the AI to reference when answering future questions
+    
+    Example: A user uploads their company's "TDS Policy.pdf" — now the AI can answer
+    questions about their specific TDS policy, not just general TDS rules.
+    
+    'async def' is used here because file uploads involve waiting for data transfer,
+    and async allows the server to handle other requests while waiting.
+    """
     filename = file.filename
     if not filename:
         raise HTTPException(status_code=400, detail="No file provided.")
 
+    # Only allow specific file types (security measure — don't accept .exe, .py, etc.)
     allowed_exts = [".pdf", ".txt", ".md", ".csv"]
     file_ext = Path(filename).suffix.lower()
     if file_ext not in allowed_exts:
@@ -370,10 +549,12 @@ async def upload_document(file: UploadFile = File(...)):
             detail=f"Unsupported file format. Supported formats: {', '.join(allowed_exts)}"
         )
 
+    # Save the uploaded file to disk
     saved_path = UPLOADS_DIR / filename
     with open(saved_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+        shutil.copyfileobj(file.file, buffer)  # Copy uploaded file data to the saved path
 
+    # Index the file into the knowledge base so the AI can search it
     ingest_result = rag_engine.ingest_file(saved_path)
 
     return {
@@ -384,12 +565,23 @@ async def upload_document(file: UploadFile = File(...)):
     }
 
 
-# ----------------------------------------------------------------------
-# 6. CA Financial Calculator Endpoints
-# ----------------------------------------------------------------------
+# =====================================================================
+# 6. CA FINANCIAL CALCULATOR ENDPOINTS
+# =====================================================================
+# These endpoints connect the frontend's calculator forms to the actual
+# calculation functions in tools.py. Each endpoint:
+# 1. Receives input data from the frontend (validated by Pydantic models above)
+# 2. Calls the corresponding function in tools.py
+# 3. Returns the calculation results as JSON
+
 @app.get("/tools")
 def list_tools():
-    """List all available CA financial calculators."""
+    """
+    LIST ALL CALCULATORS — GET /tools
+    
+    Returns a list of all available financial calculators.
+    The frontend uses this to build the calculator menu/sidebar.
+    """
     return {
         "tools": [
             {"id": "gst", "name": "GST Calculator", "endpoint": "/tools/gst"},
@@ -405,6 +597,7 @@ def list_tools():
 
 @app.post("/tools/gst")
 def calculate_gst_endpoint(data: GstRequest):
+    """GST CALCULATOR — POST /tools/gst — Calculates CGST/SGST/IGST breakdown."""
     return tools.calculate_gst(
         amount=data.amount,
         rate=data.rate,
@@ -415,6 +608,7 @@ def calculate_gst_endpoint(data: GstRequest):
 
 @app.post("/tools/tax")
 def calculate_tax_endpoint(data: TaxRequest):
+    """INCOME TAX — POST /tools/tax — Compares Old vs New tax regime and recommends the better one."""
     return tools.calculate_income_tax(
         gross_income=data.gross_income,
         financial_year=data.financial_year,
@@ -427,6 +621,7 @@ def calculate_tax_endpoint(data: TaxRequest):
 
 @app.post("/tools/tds")
 def calculate_tds_endpoint(data: TdsRequest):
+    """TDS CALCULATOR — POST /tools/tds — Calculates TDS deduction for various sections."""
     return tools.calculate_tds(
         section=data.section,
         amount=data.amount,
@@ -437,6 +632,7 @@ def calculate_tds_endpoint(data: TdsRequest):
 
 @app.post("/tools/emi")
 def calculate_emi_endpoint(data: EmiRequest):
+    """LOAN EMI — POST /tools/emi — Calculates monthly EMI, total interest, and repayment."""
     return tools.calculate_emi(
         principal=data.principal,
         annual_rate=data.annual_rate,
@@ -446,6 +642,7 @@ def calculate_emi_endpoint(data: EmiRequest):
 
 @app.post("/tools/hra")
 def calculate_hra_endpoint(data: HraRequest):
+    """HRA EXEMPTION — POST /tools/hra — Calculates tax-exempt HRA under Section 10(13A)."""
     return tools.calculate_hra_exemption(
         basic_salary=data.basic_salary,
         da=data.da,
@@ -457,6 +654,7 @@ def calculate_hra_endpoint(data: HraRequest):
 
 @app.post("/tools/depreciation")
 def calculate_depreciation_endpoint(data: DeprRequest):
+    """DEPRECIATION — POST /tools/depreciation — Generates year-by-year depreciation schedule."""
     return tools.calculate_depreciation(
         cost=data.cost,
         salvage_value=data.salvage_value,
@@ -468,6 +666,7 @@ def calculate_depreciation_endpoint(data: DeprRequest):
 
 @app.post("/tools/journal")
 def generate_journal_endpoint(data: JournalRequest):
+    """JOURNAL ENTRY — POST /tools/journal — Generates a formatted double-entry bookkeeping entry."""
     return tools.generate_journal_entry(
         transaction_description=data.transaction_description,
         amount=data.amount,
@@ -477,6 +676,14 @@ def generate_journal_endpoint(data: JournalRequest):
     )
 
 
+# =====================================================================
+# 7. SERVER STARTUP
+# =====================================================================
+# This block runs ONLY when you execute this file directly (python main.py).
+# It does NOT run when the file is imported by another script.
+
 if __name__ == "__main__":
-    import uvicorn
+    import uvicorn  # Uvicorn = A fast ASGI web server for running FastAPI apps
+    # Start the server on http://127.0.0.1:8000 (localhost, port 8000)
+    # You can then access the API docs at http://127.0.0.1:8000/docs
     uvicorn.run(app, host="127.0.0.1", port=8000)

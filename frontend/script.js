@@ -2,9 +2,11 @@
  * Pocket C.A. - Modern AI Financial Advisor Frontend
  */
 
-// Set your live Render backend URL for production
+// Auto-detect: use local backend when running locally, Render backend when deployed
+const isLocal = window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost" || window.location.protocol === "file:";
 const PRODUCTION_URL = "https://pocketca-9q42.onrender.com";
-let BACKEND_URL = localStorage.getItem("pocketca_backend_url") || PRODUCTION_URL;
+const LOCAL_URL = "http://127.0.0.1:8000";
+let BACKEND_URL = isLocal ? LOCAL_URL : PRODUCTION_URL;
 let currentSessionId = localStorage.getItem("pocketca_session_id") || generateUUID();
 let currentMessages = [];
 

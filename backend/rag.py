@@ -18,7 +18,7 @@ DATA_DIR = Path(__file__).parent.parent / "data"
 UPLOADS_DIR = DATA_DIR / "uploads"
 INDEX_DIR = Path(__file__).parent / "vector_store"
 
-# Ensure directories exist
+
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(UPLOADS_DIR, exist_ok=True)
 os.makedirs(INDEX_DIR, exist_ok=True)
