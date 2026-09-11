@@ -154,44 +154,50 @@ session_mgr = SessionManager()
 # LLM = Large Language Model (the AI brain, in this case Google Gemini).
 # These functions handle connecting to the AI model and generating responses.
 
-def get_llm():
-    """
-    Create and return a connection to Google's Gemini AI model.
-    
-    HOW IT WORKS:
-    - Tries to connect using the first model in the list (gemini-2.5-flash — fastest & cheapest)
-    - If that fails, tries the next one (gemini-2.5-pro — more powerful but slower)
-    - If that also fails, tries the fallback (gemini-2.0-flash)
-    - Returns None if ALL models fail (app will then use offline mode)
-    
-    WHY TRY MULTIPLE MODELS?
-    Some models might be temporarily unavailable, or your API key might not have access to all models.
-    This fallback chain ensures the app works with whatever model is available.
-    """
-    global API_KEY  # Use the API_KEY variable from the top of this file
-    if not API_KEY:
-        return None  # No API key = can't use AI, return None to trigger offline mode
+# Active Google Gemini models (tried in priority order)
+AVAILABLE_GEMINI_MODELS = [
+    "gemini-3.8-flash",
+    "gemini-3.6-flash",
+    "gemini-flash-latest",
+    "gemini-pro-latest",
+]
 
-    try:
-        # LangChain is a framework that makes it easy to work with different AI models
-        # ChatGoogleGenerativeAI is LangChain's wrapper for Google Gemini
-        from langchain_google_genai import ChatGoogleGenerativeAI
-        # Active Google Gemini models (try in order of preference)
-        for model_name in ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash"]:
-            try:
-                llm = ChatGoogleGenerativeAI(
-                    model=model_name,      # Which Gemini model to use
-                    api_key=API_KEY,        # Your Google API key for authentication
-                    temperature=0.2,        # Controls randomness: 0.0 = very focused, 1.0 = very creative
-                                            # 0.2 is low because we want accurate financial answers, not creative ones
-                )
-                return llm  # Successfully connected! Return this model.
-            except Exception:
-                continue  # This model failed, try the next one
-        return None  # All models failed
-    except Exception as e:
-        print(f"Error initializing ChatGoogleGenerativeAI: {e}")
-        return None
+def invoke_gemini_with_fallback(messages: list) -> str:
+    """
+    Invokes Google Gemini AI with automatic fallback across active models.
+    Tries gemini-3.8-flash -> gemini-3.6-flash -> gemini-flash-latest -> gemini-pro-latest.
+    """
+    global API_KEY
+    if not API_KEY:
+        raise ValueError("No Gemini API key configured.")
+
+    from langchain_google_genai import ChatGoogleGenerativeAI
+
+    last_error = None
+    for model_name in AVAILABLE_GEMINI_MODELS:
+        try:
+            llm = ChatGoogleGenerativeAI(
+                model=model_name,
+                api_key=API_KEY,
+                temperature=0.2,
+            )
+            response = llm.invoke(messages)
+            if isinstance(response.content, list):
+                parts = [item.get("text", "") if isinstance(item, dict) else str(item) for item in response.content]
+                return "".join(parts)
+            return str(response.content)
+        except Exception as e:
+            print(f"Model '{model_name}' invocation error: {e}")
+            last_error = e
+            continue
+
+    raise last_error or RuntimeError("All Gemini models failed.")
+
+
+def get_llm():
+    """Returns True if API_KEY is present for AI generation."""
+    global API_KEY
+    return bool(API_KEY)
 
 
 def generate_offline_answer(question: str, rag_results: List[Dict[str, Any]]) -> str:
@@ -419,23 +425,15 @@ def chat(data: ChatRequest):
         except Exception as e:
             print(f"RAG search error: {e}")  # Log but don't crash — RAG failure shouldn't break chat
 
-    # ----- Step 2: Get AI Model -----
-    llm = get_llm()  # Try to connect to Google Gemini
-
-    if not llm:
-        # NO AI AVAILABLE — use offline fallback mode
-        # This happens when: no API key is set, or all Gemini models are down
+    # ----- Step 2 & 3: Generate AI Response -----
+    if not API_KEY:
+        # NO AI KEY AVAILABLE — use offline fallback mode
         answer = generate_offline_answer(question, rag_results)
         session_mgr.add_message(session_id, "user", question)
         session_mgr.add_message(session_id, "assistant", answer, sources)
         return ChatResponse(answer=answer, session_id=session_id, sources=sources)
 
-    # ----- Step 3: Build AI Prompt & Get Response -----
     try:
-        # LangChain message types:
-        # SystemMessage = Instructions for the AI (how to behave)
-        # HumanMessage = What the user said
-        # AIMessage = What the AI previously replied
         from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 
         # Start with the system prompt (tells AI to act as a Chartered Accountant)
@@ -451,25 +449,17 @@ def chat(data: ChatRequest):
 
         # Build the current question — if we found knowledge base context, include it
         if rag_context:
-            # Use the RAG template to combine knowledge base info + user question
             current_prompt = RAG_CONTEXT_TEMPLATE.format(
                 rag_context=rag_context,
                 question=question
             )
         else:
-            current_prompt = question  # No knowledge base context, just send the question directly
+            current_prompt = question
 
         messages.append(HumanMessage(content=current_prompt))
 
-        # Send everything to Gemini and get the response
-        response = llm.invoke(messages)
-
-        # Parse the response — Gemini sometimes returns a list of parts instead of a single string
-        if isinstance(response.content, list):
-            parts = [item.get("text", "") if isinstance(item, dict) else str(item) for item in response.content]
-            answer = "".join(parts)
-        else:
-            answer = str(response.content)
+        # Invoke Gemini with multi-model fallback (gemini-3.8-flash -> 3.6-flash -> flash-latest)
+        answer = invoke_gemini_with_fallback(messages)
 
         # Save both the question and answer to session memory for future context
         session_mgr.add_message(session_id, "user", question)
@@ -481,14 +471,13 @@ def chat(data: ChatRequest):
             sources=sources
         )
     except Exception as e:
-        # If AI fails mid-response, show the error AND the knowledge base results as fallback
-        print(f"LLM generation error: {e}")
-        fallback_msg = (
-            f"*(Note: LLM request encountered an error: {str(e)[:100]}. Showing knowledge base reference below.)*\n\n" +
-            generate_offline_answer(question, rag_results)
-        )
+        # If all AI models fail, fall back to statutory knowledge base smoothly
+        print(f"All LLM generation attempts failed: {e}")
+        answer = generate_offline_answer(question, rag_results)
+        session_mgr.add_message(session_id, "user", question)
+        session_mgr.add_message(session_id, "assistant", answer, sources)
         return ChatResponse(
-            answer=fallback_msg,
+            answer=answer,
             session_id=session_id,
             sources=sources
         )

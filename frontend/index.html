@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,416 +8,468 @@
     <!-- Modern typography -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
     <!-- Marked for Markdown tables & styling -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
 
-<div class="app-layout">
-    <!-- Sidebar -->
-    <aside class="sidebar" id="sidebar">
-        <div class="brand">
-            <div class="brand-icon">
-                <span>₹</span>
-            </div>
-            <div class="brand-text">
-                <h2>Pocket C.A.</h2>
-                <span class="brand-tag">AI Financial Advisor</span>
-            </div>
-        </div>
-
-        <button class="new-chat-btn" onclick="startNewChat()">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-            New Consultation
-        </button>
-
-        <div class="nav-section">
-            <span class="nav-label">Navigation</span>
-            <button class="nav-item active" id="navChat" onclick="switchView('chat')">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                AI Advisory Chat
-            </button>
-            <button class="nav-item" id="navTools" onclick="switchView('tools')">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="16" y1="14" x2="16" y2="18"/><path d="M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M8 18h.01M12 18h.01"/></svg>
-                Financial Calculators
-            </button>
-            <button class="nav-item" id="navUpload" onclick="openUploadModal()">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                Upload Documents
-            </button>
-        </div>
-
-        <div class="nav-section history-section">
-            <span class="nav-label">Consultations</span>
-            <div class="history-list" id="historyList">
-                <!-- Dynamically populated session history -->
-            </div>
-        </div>
-
-        <div class="sidebar-footer">
-            <div class="status-card" id="statusCard">
-                <div class="status-indicator">
-                    <span class="pulse-dot"></span>
-                    <span id="backendStatus">Connecting...</span>
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="brand">
+                <div class="brand-icon">
+                    <span>₹</span>
                 </div>
-                <div class="status-meta" id="statusMeta">Knowledge Base: Loaded</div>
+                <div class="brand-text">
+                    <h2>Pocket C.A.</h2>
+                    <span class="brand-tag">AI Financial Advisor</span>
+                </div>
             </div>
-            <button class="settings-btn" onclick="openSettingsModal()" title="Configure API Key">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                Settings
-            </button>
-        </div>
-    </aside>
 
-    <!-- Main Content Area -->
-    <main class="main-content">
-        <!-- Top App Bar -->
-        <header class="app-header">
-            <div class="header-left">
-                <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
-                <h1 id="viewTitle">Chartered Accountant Advisory</h1>
-            </div>
-            <div class="header-right">
-                <button class="header-action-btn" onclick="clearCurrentChat()" title="Clear chat messages">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                    Clear
+            <button class="new-chat-btn" onclick="startNewChat()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 5v14M5 12h14" />
+                </svg>
+                New Consultation
+            </button>
+
+            <div class="nav-section">
+                <span class="nav-label">Navigation</span>
+                <button class="nav-item active" id="navChat" onclick="switchView('chat')">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                    </svg>
+                    AI Advisory Chat
                 </button>
-                <button class="header-action-btn" onclick="exportChat()" title="Export consultation">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                    Export
+                <button class="nav-item" id="navTools" onclick="switchView('tools')">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="4" y="2" width="16" height="20" rx="2" />
+                        <line x1="8" y1="6" x2="16" y2="6" />
+                        <line x1="16" y1="14" x2="16" y2="18" />
+                        <path d="M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M8 18h.01M12 18h.01" />
+                    </svg>
+                    Financial Calculators
+                </button>
+                <button class="nav-item" id="navUpload" onclick="openUploadModal()">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="17 8 12 3 7 8" />
+                        <line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                    Upload Documents
                 </button>
             </div>
-        </header>
 
-        <!-- VIEW 1: Chat View -->
-        <section class="view-panel active" id="chatView">
-            <div class="chat-container" id="chatContainer">
-                <div class="chat-box" id="chatBox">
-                    <!-- Welcome Hero Banner -->
-                    <div class="welcome-banner" id="welcomeBanner">
-                        <div class="welcome-badge">ICAI Compliance & Tax Advisory</div>
-                        <h2>Namaste! I am your AI Chartered Accountant.</h2>
-                        <p>Ask me any question regarding Indian Accounting, GST, Income Tax (New vs Old Slabs), TDS deductions, Financial Statements, or Balance Sheet preparation.</p>
-                        
-                        <div class="suggestion-grid">
-                            <button class="suggestion-chip" onclick="sendSuggestion('Compare Old vs New Tax Regime for ₹12 Lakh salary under FY 2024-25')">
-                                📊 <strong>Tax Comparison</strong>: Old vs New Regime for ₹12L
-                            </button>
-                            <button class="suggestion-chip" onclick="sendSuggestion('Calculate 18% GST on ₹75,000 exclusive with CGST and SGST breakdown')">
-                                🧾 <strong>GST Calculation</strong>: ₹75,000 @ 18%
-                            </button>
-                            <button class="suggestion-chip" onclick="sendSuggestion('What are the four mandatory conditions to claim Input Tax Credit (ITC) under Section 16?')">
-                                📑 <strong>ITC Rules</strong>: Section 16 Conditions
-                            </button>
-                            <button class="suggestion-chip" onclick="sendSuggestion('What is the TDS rate and threshold under Section 194J for professional fees?')">
-                                💼 <strong>TDS Slabs</strong>: Section 194J Rates
-                            </button>
-                            <button class="suggestion-chip" onclick="sendSuggestion('Provide the standard double-entry journal entry for purchasing machinery of ₹2,00,000 on credit with 18% GST')">
-                                ✍️ <strong>Journal Entry</strong>: Purchase of Machinery
-                            </button>
-                            <button class="suggestion-chip" onclick="sendSuggestion('What is the structure of a Balance Sheet under Schedule III of Companies Act 2013?')">
-                                🏛️ <strong>Balance Sheet</strong>: Schedule III Format
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Input Area -->
-                <div class="input-container">
-                    <div class="input-bar">
-                        <button class="attach-btn" onclick="openUploadModal()" title="Attach financial statement or invoice">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-                        </button>
-                        <textarea
-                            id="question"
-                            rows="1"
-                            placeholder="Ask any accounting, GST, income tax, or TDS question..."
-                            onkeydown="handleKey(event)"
-                            oninput="autoResize(this)"
-                        ></textarea>
-                        <button class="send-btn" id="sendBtn" onclick="askQuestion()">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                        </button>
-                    </div>
-                    <div class="input-footer">
-                        <span>Pocket C.A. is grounded in Indian Tax Laws and Ind AS. Always verify complex transactions with a licensed auditor.</span>
-                    </div>
+            <div class="nav-section history-section">
+                <span class="nav-label">Consultations</span>
+                <div class="history-list" id="historyList">
+                    <!-- Dynamically populated session history -->
                 </div>
             </div>
-        </section>
 
-        <!-- VIEW 2: Financial Calculators Hub -->
-        <section class="view-panel" id="toolsView">
-            <div class="tools-container">
-                <div class="tools-nav">
-                    <button class="tool-tab active" onclick="switchToolTab('gst')">GST Calculator</button>
-                    <button class="tool-tab" onclick="switchToolTab('tax')">Income Tax (Old vs New)</button>
-                    <button class="tool-tab" onclick="switchToolTab('tds')">TDS Calculator</button>
-                    <button class="tool-tab" onclick="switchToolTab('emi')">Loan EMI</button>
-                    <button class="tool-tab" onclick="switchToolTab('hra')">HRA Exemption</button>
-                    <button class="tool-tab" onclick="switchToolTab('depr')">Depreciation</button>
+            <div class="sidebar-footer">
+                <div class="status-card" id="statusCard">
+                    <div class="status-indicator">
+                        <span class="pulse-dot"></span>
+                        <span id="backendStatus">Connecting...</span>
+                    </div>
+                    <div class="status-meta" id="statusMeta">Knowledge Base: Loaded</div>
                 </div>
-
-                <!-- Tool 1: GST Calculator -->
-                <div class="tool-card active" id="tool-gst">
-                    <div class="tool-header">
-                        <h3>Goods & Services Tax (GST) Calculator</h3>
-                        <p>Compute CGST, SGST, IGST, and invoice totals for inclusive or exclusive amounts.</p>
-                    </div>
-                    <div class="tool-form-grid">
-                        <div class="form-group">
-                            <label>Amount (₹)</label>
-                            <input type="number" id="gstAmount" placeholder="e.g. 50000" value="50000">
-                        </div>
-                        <div class="form-group">
-                            <label>GST Rate Slab</label>
-                            <select id="gstRate">
-                                <option value="0">0% (Nil / Exempt)</option>
-                                <option value="5">5% (Essential goods/transport)</option>
-                                <option value="12">12% (Processed items/business)</option>
-                                <option value="18" selected>18% (Standard / Services / Capital goods)</option>
-                                <option value="28">28% (Luxury / De-merit goods)</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Tax Type</label>
-                            <select id="gstType">
-                                <option value="exclusive" selected>Tax Exclusive (Add GST on top)</option>
-                                <option value="inclusive">Tax Inclusive (GST already in amount)</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Supply Type</label>
-                            <select id="gstSupply">
-                                <option value="intra" selected>Intra-State (CGST + SGST)</option>
-                                <option value="inter">Inter-State (IGST)</option>
-                            </select>
-                        </div>
-                    </div>
-                    <button class="tool-calc-btn" onclick="executeGstCalc()">Calculate GST</button>
-                    <div class="tool-result" id="gstResult"></div>
-                </div>
-
-                <!-- Tool 2: Income Tax Comparison -->
-                <div class="tool-card" id="tool-tax">
-                    <div class="tool-header">
-                        <h3>Income Tax Calculator & Regime Comparison (FY 2024-25 / 2025-26)</h3>
-                        <p>Side-by-side comparison of New Tax Regime (Section 115BAC) vs Old Tax Regime with standard deductions and 87A rebate.</p>
-                    </div>
-                    <div class="tool-form-grid">
-                        <div class="form-group">
-                            <label>Gross Total Income (₹)</label>
-                            <input type="number" id="taxGross" placeholder="e.g. 1200000" value="1200000">
-                        </div>
-                        <div class="form-group">
-                            <label>Financial Year</label>
-                            <select id="taxYear">
-                                <option value="2024-25" selected>FY 2024-25 (AY 2025-26)</option>
-                                <option value="2025-26">FY 2025-26 (AY 2026-27)</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Section 80C Deductions (Max ₹1.5L, Old only)</label>
-                            <input type="number" id="tax80c" placeholder="e.g. 150000" value="150000">
-                        </div>
-                        <div class="form-group">
-                            <label>Section 80D Health Insurance (Old only)</label>
-                            <input type="number" id="tax80d" placeholder="e.g. 25000" value="25000">
-                        </div>
-                        <div class="form-group">
-                            <label>Other Deductions (80CCD, HRA, etc., Old only)</label>
-                            <input type="number" id="taxOther" placeholder="e.g. 50000" value="0">
-                        </div>
-                        <div class="form-group">
-                            <label>Age Category</label>
-                            <select id="taxAge">
-                                <option value="normal" selected>Individual below 60 years</option>
-                                <option value="senior">Senior Citizen (60 to 79)</option>
-                            </select>
-                        </div>
-                    </div>
-                    <button class="tool-calc-btn" onclick="executeTaxCalc()">Compare Regimes</button>
-                    <div class="tool-result" id="taxResult"></div>
-                </div>
-
-                <!-- Tool 3: TDS Calculator -->
-                <div class="tool-card" id="tool-tds">
-                    <div class="tool-header">
-                        <h3>Tax Deducted at Source (TDS) Calculator</h3>
-                        <p>Verify applicable section, threshold, statutory rate, and Section 206AA non-PAN rates.</p>
-                    </div>
-                    <div class="tool-form-grid">
-                        <div class="form-group">
-                            <label>Section</label>
-                            <select id="tdsSection">
-                                <option value="194J" selected>Section 194J - Professional / Technical Fees</option>
-                                <option value="194C">Section 194C - Contractor / Subcontractor Payments</option>
-                                <option value="194I">Section 194I - Rent on Land, Building, Furniture</option>
-                                <option value="194H">Section 194H - Commission or Brokerage</option>
-                                <option value="194Q">Section 194Q - Purchase of Goods exceeding ₹50L</option>
-                                <option value="194A">Section 194A - Bank / Other Interest</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Invoice / Payment Amount (₹)</label>
-                            <input type="number" id="tdsAmount" placeholder="e.g. 75000" value="75000">
-                        </div>
-                        <div class="form-group">
-                            <label>PAN Furnished?</label>
-                            <select id="tdsPan">
-                                <option value="yes" selected>Yes (Valid PAN Available)</option>
-                                <option value="no">No PAN (Applies Sec 206AA 20% penalty)</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Payee Classification</label>
-                            <select id="tdsPayee">
-                                <option value="individual" selected>Individual / Sole Proprietor / HUF</option>
-                                <option value="company">Private Ltd / Public Ltd Company / Firm</option>
-                            </select>
-                        </div>
-                    </div>
-                    <button class="tool-calc-btn" onclick="executeTdsCalc()">Calculate TDS</button>
-                    <div class="tool-result" id="tdsResult"></div>
-                </div>
-
-                <!-- Tool 4: Loan EMI -->
-                <div class="tool-card" id="tool-emi">
-                    <div class="tool-header">
-                        <h3>Loan EMI & Amortization Calculator</h3>
-                        <p>Calculate exact monthly equated installments, total interest outgo, and total repayment.</p>
-                    </div>
-                    <div class="tool-form-grid">
-                        <div class="form-group">
-                            <label>Principal Loan Amount (₹)</label>
-                            <input type="number" id="emiPrincipal" placeholder="e.g. 1000000" value="1000000">
-                        </div>
-                        <div class="form-group">
-                            <label>Annual Interest Rate (%)</label>
-                            <input type="number" step="0.1" id="emiRate" placeholder="e.g. 8.5" value="8.5">
-                        </div>
-                        <div class="form-group">
-                            <label>Tenure (Months)</label>
-                            <input type="number" id="emiTenure" placeholder="e.g. 60" value="60">
-                        </div>
-                    </div>
-                    <button class="tool-calc-btn" onclick="executeEmiCalc()">Calculate EMI</button>
-                    <div class="tool-result" id="emiResult"></div>
-                </div>
-
-                <!-- Tool 5: HRA Exemption -->
-                <div class="tool-card" id="tool-hra">
-                    <div class="tool-header">
-                        <h3>House Rent Allowance (HRA) Exemption Calculator</h3>
-                        <p>Section 10(13A) 3-step calculation to find tax-exempt and taxable HRA.</p>
-                    </div>
-                    <div class="tool-form-grid">
-                        <div class="form-group">
-                            <label>Annual Basic Salary + DA (₹)</label>
-                            <input type="number" id="hraBasic" placeholder="e.g. 600000" value="600000">
-                        </div>
-                        <div class="form-group">
-                            <label>Actual HRA Received from Employer (₹)</label>
-                            <input type="number" id="hraReceived" placeholder="e.g. 200000" value="200000">
-                        </div>
-                        <div class="form-group">
-                            <label>Actual Rent Paid Annually (₹)</label>
-                            <input type="number" id="hraRent" placeholder="e.g. 240000" value="240000">
-                        </div>
-                        <div class="form-group">
-                            <label>City Category</label>
-                            <select id="hraMetro">
-                                <option value="metro" selected>Metro (Delhi, Mumbai, Kolkata, Chennai - 50%)</option>
-                                <option value="non-metro">Non-Metro City (40%)</option>
-                            </select>
-                        </div>
-                    </div>
-                    <button class="tool-calc-btn" onclick="executeHraCalc()">Calculate HRA Exemption</button>
-                    <div class="tool-result" id="hraResult"></div>
-                </div>
-
-                <!-- Tool 6: Depreciation -->
-                <div class="tool-card" id="tool-depr">
-                    <div class="tool-header">
-                        <h3>Depreciation Calculator (SLM & WDV)</h3>
-                        <p>Compute year-by-year asset amortization under Companies Act and Income Tax Act rules.</p>
-                    </div>
-                    <div class="tool-form-grid">
-                        <div class="form-group">
-                            <label>Asset Cost (₹)</label>
-                            <input type="number" id="deprCost" placeholder="e.g. 500000" value="500000">
-                        </div>
-                        <div class="form-group">
-                            <label>Estimated Salvage Value (₹)</label>
-                            <input type="number" id="deprSalvage" placeholder="e.g. 25000" value="25000">
-                        </div>
-                        <div class="form-group">
-                            <label>Useful Life (Years)</label>
-                            <input type="number" id="deprYears" placeholder="e.g. 5" value="5">
-                        </div>
-                        <div class="form-group">
-                            <label>Method</label>
-                            <select id="deprMethod">
-                                <option value="SLM" selected>Straight Line Method (SLM)</option>
-                                <option value="WDV">Written Down Value (WDV - Income Tax Section 32)</option>
-                            </select>
-                        </div>
-                    </div>
-                    <button class="tool-calc-btn" onclick="executeDeprCalc()">Compute Schedule</button>
-                    <div class="tool-result" id="deprResult"></div>
-                </div>
+                <button class="settings-btn" onclick="openSettingsModal()" title="Configure API Key">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3" />
+                        <path
+                            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                    </svg>
+                    Settings
+                </button>
             </div>
-        </section>
-    </main>
-</div>
+        </aside>
 
-<!-- Modal: Settings / API Key -->
-<div class="modal-backdrop" id="settingsModal">
-    <div class="modal-card">
-        <div class="modal-header">
-            <h3>Pocket C.A. Settings</h3>
-            <button class="modal-close" onclick="closeSettingsModal()">×</button>
-        </div>
-        <div class="modal-body">
-            <p>Configure the backend server URL for your Pocket C.A. session.</p>
-            <div class="form-group">
-                <label>Backend Server URL</label>
-                <input type="text" id="backendUrlInput" value="http://127.0.0.1:8000">
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Top App Bar -->
+            <header class="app-header">
+                <div class="header-left">
+                    <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
+                    <h1 id="viewTitle">Chartered Accountant Advisory</h1>
+                </div>
+                <div class="header-right">
+                    <button class="header-action-btn" onclick="clearCurrentChat()" title="Clear chat messages">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        </svg>
+                        Clear
+                    </button>
+                    <button class="header-action-btn" onclick="exportChat()" title="Export consultation">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="7 10 12 15 17 10" />
+                            <line x1="12" y1="15" x2="12" y2="3" />
+                        </svg>
+                        Export
+                    </button>
+                </div>
+            </header>
+
+            <!-- VIEW 1: Chat View -->
+            <section class="view-panel active" id="chatView">
+                <div class="chat-container" id="chatContainer">
+                    <div class="chat-box" id="chatBox">
+                        <!-- Welcome Hero Banner -->
+                        <div class="welcome-banner" id="welcomeBanner">
+                            <div class="welcome-badge">ICAI Compliance & Tax Advisory</div>
+                            <h2>Namaste! I am your AI Chartered Accountant.</h2>
+                            <p>Ask me any question regarding Indian Accounting, GST, Income Tax (New vs Old Slabs), TDS
+                                deductions, Financial Statements, or Balance Sheet preparation.</p>
+
+                            <div class="suggestion-grid">
+                                <button class="suggestion-chip"
+                                    onclick="sendSuggestion('Compare Old vs New Tax Regime for ₹12 Lakh salary under FY 2024-25')">
+                                    📊 <strong>Tax Comparison</strong>: Old vs New Regime for ₹12L
+                                </button>
+                                <button class="suggestion-chip"
+                                    onclick="sendSuggestion('Calculate 18% GST on ₹75,000 exclusive with CGST and SGST breakdown')">
+                                    🧾 <strong>GST Calculation</strong>: ₹75,000 @ 18%
+                                </button>
+                                <button class="suggestion-chip"
+                                    onclick="sendSuggestion('What are the four mandatory conditions to claim Input Tax Credit (ITC) under Section 16?')">
+                                    📑 <strong>Input Tax Credit (ITC) Rules</strong>: Section 16 Conditions
+                                </button>
+                                <button class="suggestion-chip"
+                                    onclick="sendSuggestion('What is the TDS rate and threshold under Section 194J for professional fees?')">
+                                    💼 <strong>TDS Slabs</strong>: Section 194J Rates
+                                </button>
+                                <button class="suggestion-chip"
+                                    onclick="sendSuggestion('Provide the standard double-entry journal entry for purchasing machinery of ₹2,00,000 on credit with 18% GST')">
+                                    ✍️ <strong>Journal Entry</strong>: Purchase of Machinery
+                                </button>
+                                <button class="suggestion-chip"
+                                    onclick="sendSuggestion('What is the structure of a Balance Sheet under Schedule III of Companies Act 2013?')">
+                                    🏛️ <strong>Balance Sheet</strong>: Schedule III Format
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Input Area -->
+                    <div class="input-container">
+                        <div class="input-bar">
+                            <button class="attach-btn" onclick="openUploadModal()"
+                                title="Attach financial statement or invoice">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <path
+                                        d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                                </svg>
+                            </button>
+                            <textarea id="question" rows="1"
+                                placeholder="Ask any accounting, GST, income tax, or TDS question..."
+                                onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+                            <button class="send-btn" id="sendBtn" onclick="askQuestion()">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <line x1="22" y1="2" x2="11" y2="13" />
+                                    <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="input-footer">
+                            <span>Pocket C.A. is grounded in Indian Tax Laws and Ind AS. Always verify complex
+                                transactions with a licensed auditor.</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW 2: Financial Calculators Hub -->
+            <section class="view-panel" id="toolsView">
+                <div class="tools-container">
+                    <div class="tools-nav">
+                        <button class="tool-tab active" onclick="switchToolTab('gst')">GST Calculator</button>
+                        <button class="tool-tab" onclick="switchToolTab('tax')">Income Tax (Old vs New)</button>
+                        <button class="tool-tab" onclick="switchToolTab('tds')">TDS Calculator</button>
+                        <button class="tool-tab" onclick="switchToolTab('emi')">Loan EMI</button>
+                        <button class="tool-tab" onclick="switchToolTab('hra')">HRA Exemption</button>
+                        <button class="tool-tab" onclick="switchToolTab('depr')">Depreciation</button>
+                    </div>
+
+                    <!-- Tool 1: GST Calculator -->
+                    <div class="tool-card active" id="tool-gst">
+                        <div class="tool-header">
+                            <h3>Goods & Services Tax (GST) Calculator</h3>
+                            <p>Compute CGST, SGST, IGST, and invoice totals for inclusive or exclusive amounts.</p>
+                        </div>
+                        <div class="tool-form-grid">
+                            <div class="form-group">
+                                <label>Amount (₹)</label>
+                                <input type="number" id="gstAmount" placeholder="e.g. 50000" value="50000">
+                            </div>
+                            <div class="form-group">
+                                <label>GST Rate Slab</label>
+                                <select id="gstRate">
+                                    <option value="0">0% (Nil / Exempt)</option>
+                                    <option value="5">5% (Essential goods/transport)</option>
+                                    <option value="12">12% (Processed items/business)</option>
+                                    <option value="18" selected>18% (Standard / Services / Capital goods)</option>
+                                    <option value="28">28% (Luxury / De-merit goods)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Tax Type</label>
+                                <select id="gstType">
+                                    <option value="exclusive" selected>Tax Exclusive (Add GST on top)</option>
+                                    <option value="inclusive">Tax Inclusive (GST already in amount)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Supply Type</label>
+                                <select id="gstSupply">
+                                    <option value="intra" selected>Intra-State (CGST + SGST)</option>
+                                    <option value="inter">Inter-State (IGST)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button class="tool-calc-btn" onclick="executeGstCalc()">Calculate GST</button>
+                        <div class="tool-result" id="gstResult"></div>
+                    </div>
+
+                    <!-- Tool 2: Income Tax Comparison -->
+                    <div class="tool-card" id="tool-tax">
+                        <div class="tool-header">
+                            <h3>Income Tax Calculator & Regime Comparison (FY 2024-25 / 2025-26)</h3>
+                            <p>Side-by-side comparison of New Tax Regime (Section 115BAC) vs Old Tax Regime with
+                                standard deductions and 87A rebate.</p>
+                        </div>
+                        <div class="tool-form-grid">
+                            <div class="form-group">
+                                <label>Gross Total Income (₹)</label>
+                                <input type="number" id="taxGross" placeholder="e.g. 1200000" value="1200000">
+                            </div>
+                            <div class="form-group">
+                                <label>Financial Year</label>
+                                <select id="taxYear">
+                                    <option value="2024-25" selected>FY 2024-25 (AY 2025-26)</option>
+                                    <option value="2025-26">FY 2025-26 (AY 2026-27)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Section 80C Deductions (Max ₹1.5L, Old only)</label>
+                                <input type="number" id="tax80c" placeholder="e.g. 150000" value="150000">
+                            </div>
+                            <div class="form-group">
+                                <label>Section 80D Health Insurance (Old only)</label>
+                                <input type="number" id="tax80d" placeholder="e.g. 25000" value="25000">
+                            </div>
+                            <div class="form-group">
+                                <label>Other Deductions (80CCD, HRA, etc., Old only)</label>
+                                <input type="number" id="taxOther" placeholder="e.g. 50000" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label>Age Category</label>
+                                <select id="taxAge">
+                                    <option value="normal" selected>Individual below 60 years</option>
+                                    <option value="senior">Senior Citizen (60 to 79)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button class="tool-calc-btn" onclick="executeTaxCalc()">Compare Regimes</button>
+                        <div class="tool-result" id="taxResult"></div>
+                    </div>
+
+                    <!-- Tool 3: TDS Calculator -->
+                    <div class="tool-card" id="tool-tds">
+                        <div class="tool-header">
+                            <h3>Tax Deducted at Source (TDS) Calculator</h3>
+                            <p>Verify applicable section, threshold, statutory rate, and Section 206AA non-PAN rates.
+                            </p>
+                        </div>
+                        <div class="tool-form-grid">
+                            <div class="form-group">
+                                <label>Section</label>
+                                <select id="tdsSection">
+                                    <option value="194J" selected>Section 194J - Professional / Technical Fees</option>
+                                    <option value="194C">Section 194C - Contractor / Subcontractor Payments</option>
+                                    <option value="194I">Section 194I - Rent on Land, Building, Furniture</option>
+                                    <option value="194H">Section 194H - Commission or Brokerage</option>
+                                    <option value="194Q">Section 194Q - Purchase of Goods exceeding ₹50L</option>
+                                    <option value="194A">Section 194A - Bank / Other Interest</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Invoice / Payment Amount (₹)</label>
+                                <input type="number" id="tdsAmount" placeholder="e.g. 75000" value="75000">
+                            </div>
+                            <div class="form-group">
+                                <label>PAN Furnished?</label>
+                                <select id="tdsPan">
+                                    <option value="yes" selected>Yes (Valid PAN Available)</option>
+                                    <option value="no">No PAN (Applies Sec 206AA 20% penalty)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Payee Classification</label>
+                                <select id="tdsPayee">
+                                    <option value="individual" selected>Individual / Sole Proprietor / HUF</option>
+                                    <option value="company">Private Ltd / Public Ltd Company / Firm</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button class="tool-calc-btn" onclick="executeTdsCalc()">Calculate TDS</button>
+                        <div class="tool-result" id="tdsResult"></div>
+                    </div>
+
+                    <!-- Tool 4: Loan EMI -->
+                    <div class="tool-card" id="tool-emi">
+                        <div class="tool-header">
+                            <h3>Loan EMI & Amortization Calculator</h3>
+                            <p>Calculate exact monthly equated installments, total interest outgo, and total repayment.
+                            </p>
+                        </div>
+                        <div class="tool-form-grid">
+                            <div class="form-group">
+                                <label>Principal Loan Amount (₹)</label>
+                                <input type="number" id="emiPrincipal" placeholder="e.g. 1000000" value="1000000">
+                            </div>
+                            <div class="form-group">
+                                <label>Annual Interest Rate (%)</label>
+                                <input type="number" step="0.1" id="emiRate" placeholder="e.g. 8.5" value="8.5">
+                            </div>
+                            <div class="form-group">
+                                <label>Tenure (Months)</label>
+                                <input type="number" id="emiTenure" placeholder="e.g. 60" value="60">
+                            </div>
+                        </div>
+                        <button class="tool-calc-btn" onclick="executeEmiCalc()">Calculate EMI</button>
+                        <div class="tool-result" id="emiResult"></div>
+                    </div>
+
+                    <!-- Tool 5: HRA Exemption -->
+                    <div class="tool-card" id="tool-hra">
+                        <div class="tool-header">
+                            <h3>House Rent Allowance (HRA) Exemption Calculator</h3>
+                            <p>Section 10(13A) 3-step calculation to find tax-exempt and taxable HRA.</p>
+                        </div>
+                        <div class="tool-form-grid">
+                            <div class="form-group">
+                                <label>Annual Basic Salary + DA (₹)</label>
+                                <input type="number" id="hraBasic" placeholder="e.g. 600000" value="600000">
+                            </div>
+                            <div class="form-group">
+                                <label>Actual HRA Received from Employer (₹)</label>
+                                <input type="number" id="hraReceived" placeholder="e.g. 200000" value="200000">
+                            </div>
+                            <div class="form-group">
+                                <label>Actual Rent Paid Annually (₹)</label>
+                                <input type="number" id="hraRent" placeholder="e.g. 240000" value="240000">
+                            </div>
+                            <div class="form-group">
+                                <label>City Category</label>
+                                <select id="hraMetro">
+                                    <option value="metro" selected>Metro (Delhi, Mumbai, Kolkata, Chennai - 50%)
+                                    </option>
+                                    <option value="non-metro">Non-Metro City (40%)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button class="tool-calc-btn" onclick="executeHraCalc()">Calculate HRA Exemption</button>
+                        <div class="tool-result" id="hraResult"></div>
+                    </div>
+
+                    <!-- Tool 6: Depreciation -->
+                    <div class="tool-card" id="tool-depr">
+                        <div class="tool-header">
+                            <h3>Depreciation Calculator (SLM & WDV)</h3>
+                            <p>Compute year-by-year asset amortization under Companies Act and Income Tax Act rules.</p>
+                        </div>
+                        <div class="tool-form-grid">
+                            <div class="form-group">
+                                <label>Asset Cost (₹)</label>
+                                <input type="number" id="deprCost" placeholder="e.g. 500000" value="500000">
+                            </div>
+                            <div class="form-group">
+                                <label>Estimated Salvage Value (₹)</label>
+                                <input type="number" id="deprSalvage" placeholder="e.g. 25000" value="25000">
+                            </div>
+                            <div class="form-group">
+                                <label>Useful Life (Years)</label>
+                                <input type="number" id="deprYears" placeholder="e.g. 5" value="5">
+                            </div>
+                            <div class="form-group">
+                                <label>Method</label>
+                                <select id="deprMethod">
+                                    <option value="SLM" selected>Straight Line Method (SLM)</option>
+                                    <option value="WDV">Written Down Value (WDV - Income Tax Section 32)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button class="tool-calc-btn" onclick="executeDeprCalc()">Compute Schedule</button>
+                        <div class="tool-result" id="deprResult"></div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal: Settings / API Key -->
+    <div class="modal-backdrop" id="settingsModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>Pocket C.A. Settings</h3>
+                <button class="modal-close" onclick="closeSettingsModal()">×</button>
             </div>
-            <div class="modal-feedback" id="settingsFeedback"></div>
-        </div>
-        <div class="modal-footer">
-            <button class="secondary-btn" onclick="closeSettingsModal()">Cancel</button>
-            <button class="primary-btn" onclick="saveSettings()">Save & Activate</button>
+            <div class="modal-body">
+                <p>Configure the backend server URL for your Pocket C.A. session.</p>
+                <div class="form-group">
+                    <label>Backend Server URL</label>
+                    <input type="text" id="backendUrlInput" value="http://127.0.0.1:8000">
+                </div>
+                <div class="modal-feedback" id="settingsFeedback"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="secondary-btn" onclick="closeSettingsModal()">Cancel</button>
+                <button class="primary-btn" onclick="saveSettings()">Save & Activate</button>
+            </div>
         </div>
     </div>
-</div>
 
-<!-- Modal: Document Upload -->
-<div class="modal-backdrop" id="uploadModal">
-    <div class="modal-card">
-        <div class="modal-header">
-            <h3>Upload Financial Documents</h3>
-            <button class="modal-close" onclick="closeUploadModal()">×</button>
-        </div>
-        <div class="modal-body">
-            <p>Upload your balance sheets, tax computations, GST invoices, or P&L statements (PDF, TXT, CSV) to query them with Pocket C.A.</p>
-            <div class="upload-dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
-                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                <p><strong>Click to browse</strong> or drag & drop documents here</p>
-                <span>Supported: .pdf, .txt, .md, .csv (Max 15MB)</span>
-                <input type="file" id="fileInput" style="display:none" onchange="handleFileSelect(event)">
+    <!-- Modal: Document Upload -->
+    <div class="modal-backdrop" id="uploadModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>Upload Financial Documents</h3>
+                <button class="modal-close" onclick="closeUploadModal()">×</button>
             </div>
-            <div class="upload-status" id="uploadStatus"></div>
-        </div>
-        <div class="modal-footer">
-            <button class="secondary-btn" onclick="closeUploadModal()">Close</button>
+            <div class="modal-body">
+                <p>Upload your balance sheets, tax computations, GST invoices, or P&L statements (PDF, TXT, CSV) to
+                    query them with Pocket C.A.</p>
+                <div class="upload-dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="17 8 12 3 7 8" />
+                        <line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                    <p><strong>Click to browse</strong> or drag & drop documents here</p>
+                    <span>Supported: .pdf, .txt, .md, .csv (Max 15MB)</span>
+                    <input type="file" id="fileInput" style="display:none" onchange="handleFileSelect(event)">
+                </div>
+                <div class="upload-status" id="uploadStatus"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="secondary-btn" onclick="closeUploadModal()">Close</button>
+            </div>
         </div>
     </div>
-</div>
 
-<script src="script.js"></script>
+    <script src="script.js"></script>
 </body>
+
 </html>

@@ -6,7 +6,7 @@
 const isLocal = window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost" || window.location.protocol === "file:";
 const PRODUCTION_URL = "https://pocketca-9q42.onrender.com";
 const LOCAL_URL = "http://127.0.0.1:8000";
-let BACKEND_URL = isLocal ? LOCAL_URL : PRODUCTION_URL;
+let BACKEND_URL = localStorage.getItem("pocketca_backend_url") || (isLocal ? LOCAL_URL : PRODUCTION_URL);
 let currentSessionId = localStorage.getItem("pocketca_session_id") || generateUUID();
 let currentMessages = [];
 
@@ -29,31 +29,62 @@ function generateUUID() {
 // --------------------------------------------------------------------------
 // Backend Health Check
 // --------------------------------------------------------------------------
-async function checkBackendHealth() {
+function updateStatusBadge(isOnline, data, serverLabel) {
     const statusText = document.getElementById("backendStatus");
     const statusMeta = document.getElementById("statusMeta");
     const statusDot = document.querySelector(".pulse-dot");
 
-    try {
-        const res = await fetch(`${BACKEND_URL}/`);
-        if (res.ok) {
-            const data = await res.json();
-            statusText.textContent = "Pocket C.A. Online";
-            statusDot.style.backgroundColor = "#10B981";
-            statusDot.style.boxShadow = "0 0 8px #10B981";
-            
-            const chunks = data.knowledge_base?.total_chunks || 0;
-            const apiSet = data.api_key_configured;
-            statusMeta.textContent = `KB: ${chunks} chunks | AI: ${apiSet ? 'Active' : 'Local Mode'}`;
-        } else {
-            throw new Error();
-        }
-    } catch (err) {
+    if (isOnline) {
+        statusText.textContent = `Pocket C.A. Online (${serverLabel})`;
+        statusDot.style.backgroundColor = "#10B981";
+        statusDot.style.boxShadow = "0 0 8px #10B981";
+        const chunks = data?.knowledge_base?.total_chunks || 0;
+        const apiSet = data?.api_key_configured;
+        statusMeta.textContent = `KB: ${chunks} chunks | AI: ${apiSet ? 'Active' : 'Local Mode'}`;
+    } else {
         statusText.textContent = "Backend Offline";
         statusDot.style.backgroundColor = "#EF4444";
         statusDot.style.boxShadow = "0 0 8px #EF4444";
-        statusMeta.textContent = "Start FastAPI server on :8000";
+        statusMeta.textContent = "Cannot connect to server";
     }
+}
+
+async function checkBackendHealth() {
+    // 1. Try primary configured BACKEND_URL
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const res = await fetch(`${BACKEND_URL}/`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+            const data = await res.json();
+            const label = BACKEND_URL.includes("localhost") || BACKEND_URL.includes("127.0.0.1") ? "Local" : "Cloud";
+            updateStatusBadge(true, data, label);
+            return;
+        }
+    } catch (err) {
+        // primary failed, try fallback
+    }
+
+    // 2. Fallback to alternative server if primary failed
+    const fallbackUrl = (BACKEND_URL === LOCAL_URL) ? PRODUCTION_URL : LOCAL_URL;
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const res = await fetch(`${fallbackUrl}/`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+            const data = await res.json();
+            BACKEND_URL = fallbackUrl;
+            const label = fallbackUrl === LOCAL_URL ? "Local" : "Cloud";
+            updateStatusBadge(true, data, label);
+            return;
+        }
+    } catch (err) {
+        // both failed
+    }
+
+    updateStatusBadge(false, null, "");
 }
 
 // --------------------------------------------------------------------------
@@ -705,6 +736,8 @@ function sendCalcToChat(text) {
 // --------------------------------------------------------------------------
 function openSettingsModal() {
     document.getElementById("backendUrlInput").value = BACKEND_URL;
+    const apiKeyInput = document.getElementById("apiKeyInput");
+    if (apiKeyInput) apiKeyInput.value = "";
     document.getElementById("settingsFeedback").style.display = "none";
     document.getElementById("settingsModal").classList.add("active");
 }
@@ -713,8 +746,13 @@ function closeSettingsModal() {
     document.getElementById("settingsModal").classList.remove("active");
 }
 
+function setQuickUrl(url) {
+    document.getElementById("backendUrlInput").value = url;
+}
+
 async function saveSettings() {
     const newUrl = document.getElementById("backendUrlInput").value.trim();
+    const apiKeyInput = document.getElementById("apiKeyInput");
     const feedback = document.getElementById("settingsFeedback");
 
     if (newUrl) {
@@ -722,10 +760,28 @@ async function saveSettings() {
         localStorage.setItem("pocketca_backend_url", BACKEND_URL);
     }
 
+    if (apiKeyInput && apiKeyInput.value.trim()) {
+        const key = apiKeyInput.value.trim();
+        try {
+            const res = await fetch(`${BACKEND_URL}/config/api-key`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ api_key: key })
+            });
+            if (!res.ok) throw new Error("Server rejected API key");
+        } catch (e) {
+            feedback.className = "modal-feedback error";
+            feedback.textContent = "Could not activate API key on backend.";
+            feedback.style.display = "block";
+            return;
+        }
+    }
+
     feedback.className = "modal-feedback success";
     feedback.textContent = "Settings saved successfully!";
+    feedback.style.display = "block";
     checkBackendHealth();
-    setTimeout(() => closeSettingsModal(), 800);
+    setTimeout(() => closeSettingsModal(), 900);
 }
 
 // --------------------------------------------------------------------------
