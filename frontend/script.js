@@ -35,12 +35,12 @@ function updateStatusBadge(isOnline, data, serverLabel) {
     const statusDot = document.querySelector(".pulse-dot");
 
     if (isOnline) {
-        statusText.textContent = `Pocket C.A. Online (${serverLabel})`;
+        statusText.textContent = "Pocket C.A. Online";
         statusDot.style.backgroundColor = "#10B981";
         statusDot.style.boxShadow = "0 0 8px #10B981";
         const chunks = data?.knowledge_base?.total_chunks || 0;
         const apiSet = data?.api_key_configured;
-        statusMeta.textContent = `KB: ${chunks} chunks | AI: ${apiSet ? 'Active' : 'Local Mode'}`;
+        statusMeta.textContent = `KB: ${chunks} chunks | AI: ${apiSet ? 'Active' : 'Offline Mode'}`;
     } else {
         statusText.textContent = "Backend Offline";
         statusDot.style.backgroundColor = "#EF4444";
