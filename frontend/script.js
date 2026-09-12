@@ -50,10 +50,19 @@ function updateStatusBadge(isOnline, data, serverLabel) {
 }
 
 async function checkBackendHealth() {
+    // Show connecting status while waiting (Render free tier can take 30-60s to wake up)
+    const statusText = document.getElementById("backendStatus");
+    const statusMeta = document.getElementById("statusMeta");
+    const statusDot = document.querySelector(".pulse-dot");
+    statusText.textContent = "Connecting...";
+    statusDot.style.backgroundColor = "#FBBF24";
+    statusDot.style.boxShadow = "0 0 8px #FBBF24";
+    statusMeta.textContent = "Waking up server (may take ~30s)";
+
     // 1. Try primary configured BACKEND_URL
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s for Render free-tier cold start
         const res = await fetch(`${BACKEND_URL}/`, { signal: controller.signal });
         clearTimeout(timeoutId);
         if (res.ok) {
@@ -70,7 +79,7 @@ async function checkBackendHealth() {
     const fallbackUrl = (BACKEND_URL === LOCAL_URL) ? PRODUCTION_URL : LOCAL_URL;
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s for Render free-tier cold start
         const res = await fetch(`${fallbackUrl}/`, { signal: controller.signal });
         clearTimeout(timeoutId);
         if (res.ok) {
