@@ -3,10 +3,32 @@
  */
 
 // Auto-detect: use local backend when running locally, Render backend when deployed
-const isLocal = window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost" || window.location.protocol === "file:";
 const PRODUCTION_URL = "https://pocketca-9q42.onrender.com";
 const LOCAL_URL = "http://127.0.0.1:8000";
-let BACKEND_URL = localStorage.getItem("pocketca_backend_url") || (isLocal ? LOCAL_URL : PRODUCTION_URL);
+
+// Smart URL selection: Always prefer production URL unless a local server
+// is actually expected. This prevents "file://" and deployed pages from
+// incorrectly using http://127.0.0.1:8000.
+function getInitialBackendUrl() {
+    const hostname = window.location.hostname;
+    const isActuallyLocal = (hostname === "127.0.0.1" || hostname === "localhost");
+
+    const saved = localStorage.getItem("pocketca_backend_url");
+    if (saved) {
+        // If saved URL is local but we're NOT on localhost, ignore it
+        // (stale value from a previous local session)
+        const savedIsLocal = saved.includes("127.0.0.1") || saved.includes("localhost");
+        if (savedIsLocal && !isActuallyLocal) {
+            localStorage.removeItem("pocketca_backend_url");
+            return PRODUCTION_URL;
+        }
+        return saved;
+    }
+
+    return isActuallyLocal ? LOCAL_URL : PRODUCTION_URL;
+}
+
+let BACKEND_URL = getInitialBackendUrl();
 let currentSessionId = localStorage.getItem("pocketca_session_id") || generateUUID();
 let currentMessages = [];
 let backendReady = false;  // Tracks whether the server is confirmed alive
@@ -56,51 +78,43 @@ function updateStatusBadge(isOnline, data, serverLabel) {
 }
 
 async function checkBackendHealth() {
-    // Show connecting status while waiting (Render free tier can take 30-60s to wake up)
+    // Show connecting status while waiting
     const statusText = document.getElementById("backendStatus");
     const statusMeta = document.getElementById("statusMeta");
     const statusDot = document.querySelector(".pulse-dot");
     statusText.textContent = "Connecting...";
     statusDot.style.backgroundColor = "#FBBF24";
     statusDot.style.boxShadow = "0 0 8px #FBBF24";
-    statusMeta.textContent = "Waking up server (may take ~30s)";
+    statusMeta.textContent = "Connecting to server...";
 
-    // 1. Try primary configured BACKEND_URL
-    try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s for Render free-tier cold start
-        const res = await fetch(`${BACKEND_URL}/`, { signal: controller.signal });
-        clearTimeout(timeoutId);
-        if (res.ok) {
-            const data = await res.json();
-            const label = BACKEND_URL.includes("localhost") || BACKEND_URL.includes("127.0.0.1") ? "Local" : "Cloud";
-            updateStatusBadge(true, data, label);
-            backendReady = true;
-            return;
+    // Smart server detection: Try local first with a FAST timeout (2s),
+    // then try cloud. This ensures we don't waste 60s waiting for a local
+    // server that doesn't exist.
+    const serversToTry = [
+        { url: LOCAL_URL, timeout: 2000, label: "Local" },       // Quick local check
+        { url: PRODUCTION_URL, timeout: 60000, label: "Cloud" }, // Cloud (allow cold start)
+    ];
+
+    for (const server of serversToTry) {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), server.timeout);
+            const res = await fetch(`${server.url}/`, { signal: controller.signal });
+            clearTimeout(timeoutId);
+            if (res.ok) {
+                const data = await res.json();
+                BACKEND_URL = server.url;
+                localStorage.setItem("pocketca_backend_url", BACKEND_URL);  // Persist for next load
+                updateStatusBadge(true, data, server.label);
+                backendReady = true;
+                return;
+            }
+        } catch (err) {
+            // This server didn't respond, try next
         }
-    } catch (err) {
-        // primary failed, try fallback
     }
 
-    // 2. Fallback to alternative server if primary failed
-    const fallbackUrl = (BACKEND_URL === LOCAL_URL) ? PRODUCTION_URL : LOCAL_URL;
-    try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s for Render free-tier cold start
-        const res = await fetch(`${fallbackUrl}/`, { signal: controller.signal });
-        clearTimeout(timeoutId);
-        if (res.ok) {
-            const data = await res.json();
-            BACKEND_URL = fallbackUrl;
-            const label = fallbackUrl === LOCAL_URL ? "Local" : "Cloud";
-            updateStatusBadge(true, data, label);
-            backendReady = true;
-            return;
-        }
-    } catch (err) {
-        // both failed
-    }
-
+    // Neither server responded
     updateStatusBadge(false, null, "");
 }
 
