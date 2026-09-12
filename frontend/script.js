@@ -87,13 +87,17 @@ async function checkBackendHealth() {
     statusDot.style.boxShadow = "0 0 8px #FBBF24";
     statusMeta.textContent = "Connecting to server...";
 
-    // Smart server detection: Try local first with a FAST timeout (2s),
-    // then try cloud. This ensures we don't waste 60s waiting for a local
-    // server that doesn't exist.
-    const serversToTry = [
-        { url: LOCAL_URL, timeout: 2000, label: "Local" },       // Quick local check
-        { url: PRODUCTION_URL, timeout: 60000, label: "Cloud" }, // Cloud (allow cold start)
-    ];
+    // Smart server detection: Only check local if running on localhost.
+    // On deployed HTTPS (e.g. Vercel) or file://, connect directly to Cloud.
+    const isLocalhost = (window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost");
+    const serversToTry = isLocalhost
+        ? [
+            { url: LOCAL_URL, timeout: 2000, label: "Local" },       // Quick local check
+            { url: PRODUCTION_URL, timeout: 60000, label: "Cloud" }, // Cloud fallback
+          ]
+        : [
+            { url: PRODUCTION_URL, timeout: 60000, label: "Cloud" }, // Cloud primary
+          ];
 
     for (const server of serversToTry) {
         try {
