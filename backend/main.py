@@ -11,6 +11,7 @@ HOW THIS FILE WORKS:
 """
 
 import os          # os = Operating System
+import time        # time = Standard library timing & delays
 import uuid        # uuid = (universally unique Identifier). Generates random unique IDs for chat sessions
 import shutil      # shutil = Shell Utilities. Helps with file like copying uploaded files
 from pathlib import Path  # Path = Makes file/folder paths easier across Windows/Mac/Linux
@@ -155,17 +156,17 @@ session_mgr = SessionManager()
 # These functions handle connecting to the AI model and generating responses.
 
 # Active Google Gemini models (tried in priority order)
+# 'gemini-flash-latest' is prioritized for highest speed, stability, and free-tier quota limits.
 AVAILABLE_GEMINI_MODELS = [
-    "gemini-3.8-flash",
-    "gemini-3.6-flash",
     "gemini-flash-latest",
-    "gemini-pro-latest",
+    "gemini-3.6-flash",
+    "gemini-3.8-flash",
 ]
 
 def invoke_gemini_with_fallback(messages: list) -> str:
     """
     Invokes Google Gemini AI with automatic fallback across active models.
-    Tries gemini-3.8-flash -> gemini-3.6-flash -> gemini-flash-latest -> gemini-pro-latest.
+    Tries gemini-flash-latest first, followed by gemini-3.6-flash and gemini-3.8-flash.
     """
     global API_KEY
     if not API_KEY:
@@ -179,7 +180,7 @@ def invoke_gemini_with_fallback(messages: list) -> str:
             llm = ChatGoogleGenerativeAI(
                 model=model_name,
                 api_key=API_KEY,
-                temperature=0.2,
+                request_timeout=25,
             )
             response = llm.invoke(messages)
             if isinstance(response.content, list):
@@ -189,6 +190,9 @@ def invoke_gemini_with_fallback(messages: list) -> str:
         except Exception as e:
             print(f"Model '{model_name}' invocation error: {e}")
             last_error = e
+            # If Google API rate limit (429) hit, briefly pause to clear burst window
+            if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+                time.sleep(2)
             continue
 
     raise last_error or RuntimeError("All Gemini models failed.")

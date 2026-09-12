@@ -460,15 +460,26 @@ async function askQuestion() {
                 })
             });
 
+            if (!response.ok) {
+                // If server returns 502/503/504, Render is booting up — wake it up and retry
+                if (response.status >= 500 && attempt < maxAttempts) {
+                    showTypingIndicator("🔄 Server is waking up, please wait...");
+                    const awoke = await ensureBackendAwake();
+                    if (awoke) {
+                        showTypingIndicator("Computing...");
+                        continue;
+                    }
+                }
+                const data = await response.json().catch(() => ({}));
+                removeTypingIndicator();
+                appendMessageUI("assistant", `⚠️ **Server response:** ${data.detail || 'The server returned an unexpected error (' + response.status + '). Please try again.'}`);
+                return;
+            }
+
             const data = await response.json();
             removeTypingIndicator();
             backendReady = true;
-
-            if (response.ok) {
-                appendMessageUI("assistant", data.answer, data.sources || []);
-            } else {
-                appendMessageUI("assistant", `⚠️ **Error from server:** ${data.detail || 'An unexpected error occurred.'}`);
-            }
+            appendMessageUI("assistant", data.answer, data.sources || []);
             return;  // Success — exit the retry loop
 
         } catch (err) {
@@ -519,9 +530,13 @@ function autoResize(textarea) {
  */
 async function resilientFetch(url, options = {}) {
     try {
-        return await fetch(url, options);
+        const res = await fetch(url, options);
+        if (res.status >= 500) {
+            throw new Error(`Server returned ${res.status}`);
+        }
+        return res;
     } catch (err) {
-        // First attempt failed — server is probably sleeping. Wake it up.
+        // First attempt failed (or returned 5xx gateway error) — server is probably sleeping. Wake it up.
         backendReady = false;
         const maxWakeRetries = 12;
         for (let i = 0; i < maxWakeRetries; i++) {
