@@ -673,6 +673,9 @@ def generate_journal_endpoint(data: JournalRequest):
 
 if __name__ == "__main__":
     import uvicorn  # Uvicorn = A fast ASGI web server for running FastAPI apps
-    # Start the server on http://127.0.0.1:8000 (localhost, port 8000)
-    # You can then access the API docs at http://127.0.0.1:8000/docs
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    # Read port from environment variable (Render sets this automatically)
+    # Falls back to 8000 for local development
+    port = int(os.environ.get("PORT", 8000))
+    # host="0.0.0.0" allows external connections (required for cloud deployment)
+    # For local-only access, you can change this to "127.0.0.1"
+    uvicorn.run(app, host="0.0.0.0", port=port)
