@@ -9,6 +9,7 @@ const LOCAL_URL = "http://127.0.0.1:8000";
 let BACKEND_URL = localStorage.getItem("pocketca_backend_url") || (isLocal ? LOCAL_URL : PRODUCTION_URL);
 let currentSessionId = localStorage.getItem("pocketca_session_id") || generateUUID();
 let currentMessages = [];
+let backendReady = false;  // Tracks whether the server is confirmed alive
 
 // Initialize on DOM load
 document.addEventListener("DOMContentLoaded", () => {
@@ -16,6 +17,11 @@ document.addEventListener("DOMContentLoaded", () => {
     checkBackendHealth();
     renderSessionList();
     loadSessionHistory(currentSessionId);
+
+    // Keep-alive ping: prevents Render free-tier from sleeping (every 10 min)
+    setInterval(() => {
+        fetch(`${BACKEND_URL}/`, { method: "GET" }).catch(() => {});
+    }, 10 * 60 * 1000);
 });
 
 function generateUUID() {
@@ -69,6 +75,7 @@ async function checkBackendHealth() {
             const data = await res.json();
             const label = BACKEND_URL.includes("localhost") || BACKEND_URL.includes("127.0.0.1") ? "Local" : "Cloud";
             updateStatusBadge(true, data, label);
+            backendReady = true;
             return;
         }
     } catch (err) {
@@ -87,6 +94,7 @@ async function checkBackendHealth() {
             BACKEND_URL = fallbackUrl;
             const label = fallbackUrl === LOCAL_URL ? "Local" : "Cloud";
             updateStatusBadge(true, data, label);
+            backendReady = true;
             return;
         }
     } catch (err) {
@@ -331,7 +339,9 @@ function appendMessageUI(role, content, sources = [], animate = true) {
     currentMessages.push({ role, content, sources });
 }
 
-function showTypingIndicator() {
+function showTypingIndicator(statusText = "Computing...") {
+    // Remove existing indicator if present
+    removeTypingIndicator();
     const chatBox = document.getElementById("chatBox");
     const row = document.createElement("div");
     row.className = "message-row bot-row";
@@ -342,7 +352,7 @@ function showTypingIndicator() {
         <div class="message-content-wrapper">
             <div class="message-header">
                 <span class="sender-name">Pocket C.A.</span>
-                <span class="message-time">Computing...</span>
+                <span class="message-time" id="typingStatus">${statusText}</span>
             </div>
             <div class="message-bubble">
                 <div class="typing-dots">
@@ -357,9 +367,43 @@ function showTypingIndicator() {
     chatBox.scrollTop = chatBox.scrollHeight;
 }
 
+function updateTypingStatus(text) {
+    const el = document.getElementById("typingStatus");
+    if (el) el.textContent = text;
+}
+
 function removeTypingIndicator() {
     const indicator = document.getElementById("typingIndicator");
     if (indicator) indicator.remove();
+}
+
+/**
+ * Ensures the backend server is awake and responsive.
+ * Retries every 5 seconds for up to ~90 seconds (Render cold start worst case).
+ * Returns true if server is reachable, false if all retries exhausted.
+ */
+async function ensureBackendAwake() {
+    if (backendReady) return true;
+
+    const maxRetries = 18;  // 18 × 5s = 90 seconds max wait
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
+            const res = await fetch(`${BACKEND_URL}/`, { signal: controller.signal });
+            clearTimeout(timeoutId);
+            if (res.ok) {
+                backendReady = true;
+                checkBackendHealth();  // Update the status badge
+                return true;
+            }
+        } catch (e) {
+            // Server not ready yet — update UI and retry
+        }
+        updateTypingStatus(`Waking up server... (${i + 1}/${maxRetries})`);
+        await new Promise(r => setTimeout(r, 5000));
+    }
+    return false;
 }
 
 async function askQuestion() {
@@ -382,30 +426,55 @@ async function askQuestion() {
         saveSessions(sessions);
     }
 
-    showTypingIndicator();
+    showTypingIndicator("Computing...");
 
-    try {
-        const response = await fetch(`${BACKEND_URL}/chat`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                question: question,
-                session_id: currentSessionId,
-                use_rag: true
-            })
-        });
+    // Auto-retry logic: if backend is sleeping, wake it up first
+    const maxAttempts = 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            const response = await fetch(`${BACKEND_URL}/chat`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    question: question,
+                    session_id: currentSessionId,
+                    use_rag: true
+                })
+            });
 
-        const data = await response.json();
-        removeTypingIndicator();
+            const data = await response.json();
+            removeTypingIndicator();
+            backendReady = true;
 
-        if (response.ok) {
-            appendMessageUI("assistant", data.answer, data.sources || []);
-        } else {
-            appendMessageUI("assistant", `⚠️ **Error from server:** ${data.detail || 'An unexpected error occurred.'}`);
+            if (response.ok) {
+                appendMessageUI("assistant", data.answer, data.sources || []);
+            } else {
+                appendMessageUI("assistant", `⚠️ **Error from server:** ${data.detail || 'An unexpected error occurred.'}`);
+            }
+            return;  // Success — exit the retry loop
+
+        } catch (err) {
+            backendReady = false;
+
+            if (attempt < maxAttempts) {
+                // Server is likely sleeping — wake it up before retrying
+                showTypingIndicator("🔄 Server is waking up, please wait...");
+                const awoke = await ensureBackendAwake();
+                if (awoke) {
+                    showTypingIndicator("Computing...");
+                    continue;  // Retry the chat request
+                }
+            }
+
+            // All retries exhausted
+            removeTypingIndicator();
+            appendMessageUI("assistant",
+                `⚠️ **Server is temporarily unreachable.**\n` +
+                `The cloud server may be undergoing maintenance. Please try again in a minute, ` +
+                `or check the server status in ⚙️ Settings.`
+            );
+            return;
         }
-    } catch (err) {
-        removeTypingIndicator();
-        appendMessageUI("assistant", `⚠️ **Could not connect to backend server at ${BACKEND_URL}.**\nPlease ensure the FastAPI server is running (\`uvicorn main:app --reload\`).`);
     }
 }
 
@@ -424,6 +493,35 @@ function handleKey(e) {
 function autoResize(textarea) {
     textarea.style.height = 'auto';
     textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+}
+
+/**
+ * Resilient fetch wrapper — if the request fails due to a sleeping server,
+ * it wakes the server up and retries automatically. Used by calculator endpoints.
+ */
+async function resilientFetch(url, options = {}) {
+    try {
+        return await fetch(url, options);
+    } catch (err) {
+        // First attempt failed — server is probably sleeping. Wake it up.
+        backendReady = false;
+        const maxWakeRetries = 12;
+        for (let i = 0; i < maxWakeRetries; i++) {
+            try {
+                const controller = new AbortController();
+                const tid = setTimeout(() => controller.abort(), 5000);
+                const ping = await fetch(`${BACKEND_URL}/`, { signal: controller.signal });
+                clearTimeout(tid);
+                if (ping.ok) {
+                    backendReady = true;
+                    checkBackendHealth();
+                    return await fetch(url, options);  // Retry the original request
+                }
+            } catch (e) { /* still waking up */ }
+            await new Promise(r => setTimeout(r, 5000));
+        }
+        throw new Error("Server unreachable after wake-up attempts");
+    }
 }
 
 function createWelcomeBanner() {
@@ -473,7 +571,7 @@ async function executeGstCalc() {
     const resBox = document.getElementById("gstResult");
 
     try {
-        const res = await fetch(`${BACKEND_URL}/tools/gst`, {
+        const res = await resilientFetch(`${BACKEND_URL}/tools/gst`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ amount, rate, tax_type: taxType, is_interstate: isInterstate })
@@ -518,7 +616,7 @@ async function executeTaxCalc() {
     const resBox = document.getElementById("taxResult");
 
     try {
-        const res = await fetch(`${BACKEND_URL}/tools/tax`, {
+        const res = await resilientFetch(`${BACKEND_URL}/tools/tax`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -584,7 +682,7 @@ async function executeTdsCalc() {
     const resBox = document.getElementById("tdsResult");
 
     try {
-        const res = await fetch(`${BACKEND_URL}/tools/tds`, {
+        const res = await resilientFetch(`${BACKEND_URL}/tools/tds`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ section, amount, pan_available: panAvailable, payee_type: payeeType })
@@ -626,7 +724,7 @@ async function executeEmiCalc() {
     const resBox = document.getElementById("emiResult");
 
     try {
-        const res = await fetch(`${BACKEND_URL}/tools/emi`, {
+        const res = await resilientFetch(`${BACKEND_URL}/tools/emi`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ principal, annual_rate: annualRate, tenure_months: tenureMonths })
@@ -666,7 +764,7 @@ async function executeHraCalc() {
     const resBox = document.getElementById("hraResult");
 
     try {
-        const res = await fetch(`${BACKEND_URL}/tools/hra`, {
+        const res = await resilientFetch(`${BACKEND_URL}/tools/hra`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ basic_salary: basic, hra_received: received, rent_paid: rent, is_metro: isMetro })
@@ -702,7 +800,7 @@ async function executeDeprCalc() {
     const resBox = document.getElementById("deprResult");
 
     try {
-        const res = await fetch(`${BACKEND_URL}/tools/depreciation`, {
+        const res = await resilientFetch(`${BACKEND_URL}/tools/depreciation`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ cost, salvage_value: salvage, useful_life_years: years, method })
